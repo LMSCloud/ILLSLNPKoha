@@ -12,13 +12,21 @@ Sisis Informationssysteme GmbH / OCLC owns all rights to SLNP.
 SLNP is a registered trademark of Sisis Informationssysteme GmbH / OCLC.
 
 ## Synopsis
-This ILL backend provides a simple method to handle Interlibrary Loan requests that are initiated by an regional ILL server using the SLNP protocol.
-The additional service 'ILLZFLServerKoha' manages the communication with the regional ILL server and will insert records in tables illrequests and illrequestattributes 
+The ILL backend 'ILLSLNPKoha'  provides a simple method to handle Interlibrary Loan requests that are initiated by an regional ILL server using the SLNP protocol.
+The additional service 'ILLZFLServerKoha' runs as a daemon in the background managing the communication with the regional ILL server and inserting records in tables illrequests and illrequestattributes 
 by calling the 'create' method of ILLSLNPKoha. 
 The remaining features of this ILL backend are accessible via the standard ILL framework in the Koha staff interface.
 
 ## Installing
-* Create a directory in `Koha` called `Illbackends`, so you will end up with `Koha/Illbackends`
-* Clone the repository into this directory, so you will end up with `Koha/Illbackends/ILLSLNPKoha`
-* In the `ILLSLNPKoha` directory switch to the branch you wish to use (in the moment only 'master' (matching Koha-LMSCloud master) is supported)
-* Activate ILL by enabling the `ILLModule` system preference and check the <interlibrary_loans> division in your koha-conf.xml
+* Create a directory in '/usr/share/koha/lib/Koha' called 'Illbackends', so you will end up with '/usr/share/koha/lib/Koha/Illbackends'.
+* Clone the repository into this directory, so you will end up with '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha'.
+* In the 'ILLSLNPKoha' directory switch to the branch you wish to use (in the moment only 'master' (matching Koha-LMSCloud master) is supported).
+* Activate the Koha ILL framwork and ILL backends by enabling the 'ILLModule' system preference.
+* Check the <interlibrary_loans> division in your koha-conf.xml.
+* Copy the Net::Server::Fork configuration file '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/conf/ILLZFLServerKoha.conf' into directory '/etc/koha/sites/{name-of-your-Koha-instance}/'.
+* Adapt the Net::Server::Fork configuration file '/etc/koha/sites/{name-of-your-Koha-instance}/ILLZFLServerKoha.conf', otherwise ILLZFLServerKoha will not work.
+* Copy the service script '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/conf/koha-ILLZFLServerKoha' into directory '/etc/init.d'
+* Register the service script '/etc/init.d/koha-ILLZFLServerKoha' by calling 'update-rc.d koha-ILLZFLServerKoha defaults'.
++ Now the service ILLZFLServerKoha may be started (or stopped) by calling '/etc/init.d/koha-ILLZFLServerKoha start (or stop)' or by 'service koha-ILLZFLServerKoha start (or stop)'.
+* Call hierarchy: '/etc/init.d/koha-ILLZFLServerKoha' calls '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/koha-ILLZFLServerKoha.sh' that calls '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/runILLZFLServerKoha.pl' that finally starts (or stops) the daemon.
+* It is strongly recommended to encrypt the communication between the regional ILL SLNPServer and ILLZFLServerKoha (e.g. by using stunnel)

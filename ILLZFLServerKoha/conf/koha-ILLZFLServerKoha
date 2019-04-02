@@ -1,0 +1,112 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          koha-ILLZFLServerKoha
+# Required-Start:    koha-common
+# Required-Stop:     koha-common
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start ILLZFLServerKoha for each Koha instance that requires it.
+# Description:       For each enabled Koha instance on this host,
+#                    if enabled and configuration file /etc/koha/sites/[Koha instance name]/ILLZFLServerKoha.conf exists,
+#                    start the ILLZFLServerKoha (using runILLZFLServerKoha.pl via koha-ILLZFLServerKoha.sh)
+### END INIT INFO
+
+# Do NOT "set -e"
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Koha server listening for ILL SLNP messages"
+NAME="koha-ILLZFLServerKoha"
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x /usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha ] || exit 0
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+## Define LSB log_* functions.
+## Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+# XXXWH . /lib/lsb/init-functions
+
+# include helper functions
+if [ -f "/usr/share/koha/bin/koha-functions.sh" ]; then
+    . "/usr/share/koha/bin/koha-functions.sh"
+else
+    echo "Error: /usr/share/koha/bin/koha-functions.sh not present." 1>&2
+    exit 1
+fi
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    /usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/koha-ILLZFLServerKoha.sh start $(koha-list --enabled)
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+    # We stop everything, including disabled ones.
+    /usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/koha-ILLZFLServerKoha.sh stop $(koha-list) || true
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+    /usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/koha-ILLZFLServerKoha.sh stop $(koha-list) || true
+    /usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/bin/koha-ILLZFLServerKoha.sh start $(koha-list --enabled)
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		*) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		*) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  status)
+        # status check not implemented
+        ;;
+  *)
+    echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
+	exit 3
+	;;
+esac
+
+:

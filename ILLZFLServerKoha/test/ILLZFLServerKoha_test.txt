@@ -1,0 +1,127 @@
+# start and stop of the server (as root):
+/etc/init.d/koha-ILLSLNPServerKoha start
+/etc/init.d/koha-ILLSLNPServerKoha stop
+
+# logfiles (in /var/log/koha/wallenheim)
+runILLSLNPServerKoha-error.log
+runILLSLNPServerKoha-output.log
+ILLSLNPServerKoha.log
+
+# connect to server:
+netcat localhost 9001
+OR
+nc localhost 9001
+
+# test SLNP commands:
+#####################
+
+SLNPFLBestellung
+BsArt=PFL
+SLNPEndCommand
+
+# correct error message:
+520 SlnpRequestError: SLNP_REQ_FORMAT_ERROR Error in request, line no.:2 line:"BsArt=PFL"
+
+
+SLNPFLBestellung
+BsTyp:PFL
+SLNPEndCommand
+
+# correct error message:
+520 SlnpRequestError: SLNP_MAND_PARAM_LACKING The mandatory SLNP parameter 'SigelNB' is lacking in request.
+520 SlnpRequestError: SLNP_MAND_PARAM_LACKING The mandatory SLNP parameter <any mansadtory parameter> is lacking in request.
+
+
+SLNPFLBestellung
+BsTyp:PFL
+SigelNB:123ABC
+SigelListe:123ABC:456DEF
+BestellId:BsNr1234
+WRONGBenutzerNummer:00000000114
+BenutzerNummer:2056218117
+SLNPEndCommand
+
+# correct error message:
+520 SlnpRequestError: SLNP_MAND_PARAM_LACKING The mandatory SLNP parameter 'Titel' is lacking in request.
+
+
+SLNPFLBestellung
+BsTyp:PFL
+SigelNB:123ABC
+SigelListe: 
+BestellId:BsNr1234
+WRONGBenutzerNummer:00000000114
+BenutzerNummer:2056218117
+Isbn:   1234567890
+Issn: 
+SLNPEndCommand
+
+# correct error message:
+520 SlnpRequestError: SLNP_MAND_PARAM_LACKING The mandatory SLNP parameter 'Titel' is lacking in request.
+
+
+# OK:
+# mandatory: always increment BestellId
+# recommended: also increment Titel, Isbn, Signatur, Heft, Seitenangabe for ease of testing
+SLNPFLBestellung
+BsTyp:PFL
+SigelNB:123ABC
+SigelListe: 
+BestellId:BsNr1234
+WRONGBenutzerNummer:00000000114
+BenutzerNummer:4711
+Titel:Kater Murr019
+Isbn:   1234567890
+Issn: 
+Signatur:MSIG Z12
+SLNPEndCommand
+
+# correct success response:
+600 SLNPFLBestellung
+601 PFLNummer:73
+601 OKMsg:ILL request successfully inserted.
+250 SLNPEndOfData
+
+
+
+# OK, fully featured:
+# mandatory: always increment BestellId
+# recommended: also increment Titel, Isbn, Signatur, Heft, Seitenangabe for ease of testing
+SLNPFLBestellung
+BsTyp:PFL
+SigelNB:123-ABC
+SigelListe: 
+BestellId:20180000133
+WRONGBenutzerNummer:00000000114
+BenutzerNummer:4711
+Verfasser:Höffmännsberger, Bü.
+Titel:Kater Mürr33
+AufsatzAutor:Müller, M.
+AufsatzTitel:Messies und Aspies
+Isbn:   1234550033
+Issn: 
+Signatur:MSIG Z33
+Info:AFLG:0;SPRCH:0;KP:0;ZWGSTL:;BF:2;
+Bemerkung:Testbemerkung24 beim Bestellen
+Heft:2015 / 33
+Auflage:16. Aufl., völlig überarb. und neu gestaltet / Aktualisierung der 16. Aufl.: Peter Peter
+Seitenangabe:225-233
+SLNPEndCommand
+
+# correct error message (e.g. if BestellId is not incremented):
+510 SLNPEvalError: Undefined error The Koha illrequest for the title 'Kater Mürr30' could not be created. (error_creating_items )
+
+# correct success response:
+600 SLNPFLBestellung
+601 PFLNummer:74
+601 OKMsg:ILL request successfully inserted.
+250 SLNPEndOfData
+
+
+
+############################
+# quit the connection:
+
+SLNPQuit
+SLNPEndCommand
+
