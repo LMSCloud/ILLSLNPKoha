@@ -14,199 +14,198 @@
   [% END %]
 [% END %]
 
-[% IF whole.stage == "deliveryInsert" || whole.stage == "InsertAndPrint" || whole.stage == "deliveryUpdate" || whole.stage == "UpdateAndPrint" %]
-[% IF whole.stage == "deliveryInsert" || whole.stage == "InsertAndPrint" %]
-  <h2>Eingangsverbuchung (Bestell-ID: [% whole.value.request.orderid %])</h2>
-[% ELSE %]
-  <h2>Eingang bearbeiten (Bestell-ID: [% whole.value.request.orderid %])</h2>
-[% END %]
-<form id="SLNP_delivery" name="SLNP_delivery" method="POST" action=[% here %]>
+[% IF whole.stage == "deliveryInsert" || whole.stage == "deliveryUpdate" %]
+  [% IF whole.stage == "deliveryInsert" %]
+    <h2>Eingangsverbuchung (Bestell-ID: [% whole.value.request.orderid %])</h2>
+  [% ELSE %]
+    <h2>Eingang bearbeiten (Bestell-ID: [% whole.value.request.orderid %])</h2>
+  [% END %]
 
-  <fieldset class="rows">
-    <legend>Mediendaten</legend>
-    <ol id="general-slnp_delivery-fields">
+  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action=[% here %]>
 
-      <li>
-        <label class="required" for="type">Bestelltyp:</label>
-          <select name="type" id="type" required="required">
-          [% IF !whole.error %]
-            <option value=""/>
-          [% END %]
-          [% IF whole.value.other.type == "Book" %]
-            <option value="Book" selected="selected">Book</option>
-          [% ELSE %]
-            <option value="Book">Book</option>
-          [% END %]
-          [% IF whole.value.other.type == "Article" %]
-            <option value="Article" selected="selected">Article</option>
-          [% ELSE %]
-            <option value="Article">Article</option>
-          [% END %]
-          [% IF whole.value.other.type == "Journal" %]
-            <option value="Journal" selected="selected">Journal</option>
-          [% ELSE %]
-            <option value="Journal">Journal</option>
-          [% END %]
-          [% IF whole.value.other.type == "Other" %]
-            <option value="Other" selected="selected">Other</option>
-          [% ELSE %]
-            <option value="Other">Other</option>
-          [% END %]
-        </select>
-      </li>
+    <fieldset class="rows">
+      <legend>Mediendaten</legend>
+      <ol id="general-slnp_delivery-fields">
 
-      <li>
-        <label for="noncirccollection">Präsenzbestand:</label>
-        [% IF whole.value.other.noncirccollection %]
-          <input type="checkbox" name="noncirccollection" id="noncirccollection" value="1" checked="checked" />
-        [% ELSE %]
-          <input type="checkbox" name="noncirccollection" id="noncirccollection" value="1" />
-        [% END %]
-      </li>
-
-      <li>
-        <label class="required" for="kohaitemtype">Medientyp:</label>
-        <select id="kohaitemtype" name="kohaitemtype" required="required" >
-          [% IF !whole.error %]
-            <option value="" />
-          [% END %]
-          [% FOREACH kohaillitemtype IN whole.value.other.kohaIllItemtypes %]
-            [% IF whole.value.other.kohaitemtype == kohaillitemtype.itemtype %]
-              <option value="[% kohaillitemtype.itemtype %]" selected="selected">
-            [% ELSE %]
-              <option value="[% kohaillitemtype.itemtype %]">
+        <li>
+          <label class="required" for="type">Bestelltyp:</label>
+            <select name="type" id="type" required="required">
+            [% IF !whole.error %]
+              <option value=""/>
             [% END %]
-              [% kohaillitemtype.translated_description %]
-            </option>
+            [% IF whole.value.other.type == "Book" %]
+              <option value="Book" selected="selected">Book</option>
+            [% ELSE %]
+              <option value="Book">Book</option>
+            [% END %]
+            [% IF whole.value.other.type == "Article" %]
+              <option value="Article" selected="selected">Article</option>
+            [% ELSE %]
+              <option value="Article">Article</option>
+            [% END %]
+            [% IF whole.value.other.type == "Journal" %]
+              <option value="Journal" selected="selected">Journal</option>
+            [% ELSE %]
+              <option value="Journal">Journal</option>
+            [% END %]
+            [% IF whole.value.other.type == "Other" %]
+              <option value="Other" selected="selected">Other</option>
+            [% ELSE %]
+              <option value="Other">Other</option>
+            [% END %]
+          </select>
+        </li>
+
+        <li>
+          <label for="noncirccollection">Präsenzbestand:</label>
+          [% IF whole.value.other.noncirccollection %]
+            <input type="checkbox" name="noncirccollection" id="noncirccollection" value="1" checked="checked" />
+          [% ELSE %]
+            <input type="checkbox" name="noncirccollection" id="noncirccollection" value="1" />
           [% END %]
-        </select>
-      </li>
+        </li>
 
-      <li>
-        <label for="volumescount">Anzahl Bände:</label>
-        <input type="number" name="volumescount" id="volumescount" min="0" size="10" maxlength="10" value="[% whole.value.other.volumescount %]" />
-      </li>
+        <li>
+          <label class="required" for="kohaitemtype">Medientyp:</label>
+          <select id="kohaitemtype" name="kohaitemtype" required="required" >
+            [% IF !whole.error %]
+              <option value="" />
+            [% END %]
+            [% FOREACH kohaillitemtype IN whole.value.other.kohaIllItemtypes %]
+              [% IF whole.value.other.kohaitemtype == kohaillitemtype.itemtype %]
+                <option value="[% kohaillitemtype.itemtype %]" selected="selected">
+              [% ELSE %]
+                <option value="[% kohaillitemtype.itemtype %]">
+              [% END %]
+                [% kohaillitemtype.translated_description %]
+              </option>
+            [% END %]
+          </select>
+        </li>
 
-    </ol>
-  </fieldset>
+        <li>
+          <label for="volumescount">Anzahl Bände:</label>
+         <input type="number" name="volumescount" id="volumescount" min="0" size="10" maxlength="10" value="[% whole.value.other.volumescount %]" />
+        </li>
 
-  <fieldset class="rows">
-    <legend>Lieferung</legend>
-    <ol id="details-delivery-fields">
+      </ol>
+    </fieldset>
 
-      <li>
-        <label class="required" for="deliverydate">Exemplar/Dokument erhalten am:</label>
-        <input type="text" class="datepicker" name="deliverydate" id="deliverydate" size="10" maxlength="10" value="[% whole.value.other.deliverydate | $KohaDates %]" required="required" />
-        <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
-      </li>
+    <fieldset class="rows">
+      <legend>Lieferung</legend>
+      <ol id="details-delivery-fields">
 
-      <li id="sendingIllLibrary">
-        <label class="required" for="sendingIllLibraryInfo">Lieferbibliothek:</label>
+        <li>
+          <label class="required" for="deliverydate">Exemplar/Dokument erhalten am:</label>
+          <input type="text" class="datepicker" name="deliverydate" id="deliverydate" size="10" maxlength="10" value="[% whole.value.other.deliverydate | $KohaDates %]" required="required" />
+          <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
+        </li>
 
-        [% IF whole.value.other.sendingIllLibraryBorrowernumber %]
+        <li id="sendingIllLibrary">
+          <label class="required" for="sendingIllLibraryInfo">Lieferbibliothek:</label>
+
+          [% IF whole.value.other.sendingIllLibraryBorrowernumber %]
             [% SET sendingIllLibraryInfo = 'Sigel: ' _ whole.value.other.sendingIllLibraryIsil _ ' / ' _ whole.value.other.sendingIllLibrarySurname _ ' / Ort: ' _ whole.value.other.sendingIllLibraryCity %]
             <span></span><a target="blank" href="/cgi-bin/koha/members/moremember.pl?borrowernumber=[% whole.value.other.sendingIllLibraryBorrowernumber %]"><input disabled type="text" name="sendingIllLibraryInfo" id="sendingIllLibraryInfo" size="80" value="[% sendingIllLibraryInfo | html %]" required="required" /></a>
-        [% ELSE %]
+          [% ELSE %]
             <span></span><a target="blank" href="/cgi-bin/koha/members/moremember.pl"><input required="required" disabled type="text" name="sendingIllLibraryInfo" id="sendingIllLibraryInfo" size="80" value="" /></a>
-        [% END %]
-        <input type="hidden" id="sendingIllLibraryBorrowernumber" name="sendingIllLibraryBorrowernumber" value="[% whole.value.other.sendingIllLibraryBorrowernumber %]" />
-        <input type="hidden" id="sendingIllLibraryIsil" name="sendingIllLibraryIsil" value="[% whole.value.other.sendingIllLibraryIsil %]" />
-        <input type="hidden" id="sendingIllLibrarySurname" name="sendingIllLibrarySurname" value="[% whole.value.other.sendingIllLibrarySurname %]" />
-        <input type="hidden" id="sendingIllLibraryCity" name="sendingIllLibraryCity" value="[% whole.value.other.sendingIllLibraryCity %]" />
-        [% SET illcategs = '' %]
-        [% FOREACH category IN whole.value.other.kohaIllPatronCategories %]
+          [% END %]
+          <input type="hidden" id="sendingIllLibraryBorrowernumber" name="sendingIllLibraryBorrowernumber" value="[% whole.value.other.sendingIllLibraryBorrowernumber %]" />
+          <input type="hidden" id="sendingIllLibraryIsil" name="sendingIllLibraryIsil" value="[% whole.value.other.sendingIllLibraryIsil %]" />
+          <input type="hidden" id="sendingIllLibrarySurname" name="sendingIllLibrarySurname" value="[% whole.value.other.sendingIllLibrarySurname %]" />
+          <input type="hidden" id="sendingIllLibraryCity" name="sendingIllLibraryCity" value="[% whole.value.other.sendingIllLibraryCity %]" />
+          [% SET illcategs = '' %]
+          [% FOREACH category IN whole.value.other.kohaIllPatronCategories %]
             [% SET illcategs = illcategs _ category.categorycode _ ',' %]
-        [% END %]
-         <input id="illlibrarysearch" type="button" [% IF whole.value.other.sendingIllLibraryBorrowernumber %]value="Ändern"[% ELSE %]value="Suchen"[% END %] onclick="DoPopIllLibrarySearch('illLibrary_search.pl?illcategories=[% illcategs %]');" />
-      </li>
+          [% END %]
+           <input id="illlibrarysearch" type="button" [% IF whole.value.other.sendingIllLibraryBorrowernumber %]value="Ändern"[% ELSE %]value="Suchen"[% END %] onclick="DoPopIllLibrarySearch('illLibrary_search.pl?illcategories=[% illcategs %]');" />
+        </li>
 
-      <li>
-        <label for="billedillrequestcosts">Kosten:</label>
-        <input type="text" size="10" name="billedillrequestcosts" id="billedillrequestcosts" value="[% whole.value.other.billedillrequestcosts | $Price %]"  oninput="floatInput(document.SLNP_delivery.billedillrequestcosts,2)"  onchange="moneyFormat(document.SLNP_delivery.billedillrequestcosts)" />
-      </li>
+        <li>
+          <label for="billedillrequestcosts">Kosten:</label>
+          <input type="text" size="10" name="billedillrequestcosts" id="billedillrequestcosts" value="[% whole.value.other.billedillrequestcosts | $Price %]"  oninput="floatInput(document.SLNP_delivery.billedillrequestcosts,2)"  onchange="moneyFormat(document.SLNP_delivery.billedillrequestcosts)" />
+        </li>
 
-      <li>
-        <label class="required" for="duedate">Rückgabedatum:</label>
-        <input type="text" class="datepicker" name="duedate" id="duedate" size="10" maxlength="10" value="[% whole.value.other.duedate | $KohaDates %]" required="required" />
-        <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
-      </li>
+        <li>
+          <label class="required" for="duedate">Rückgabedatum:</label>
+          <input type="text" class="datepicker" name="duedate" id="duedate" size="10" maxlength="10" value="[% whole.value.other.duedate | $KohaDates %]" required="required" />
+         <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
+        </li>
 
-    </ol>
-  </fieldset>
+      </ol>
+    </fieldset>
 
-  <fieldset class="rows">
-    <legend>Benachrichtigung / Laufzettel</legend>
-    <ol>
-      <li>
-        <label for="borrowerinfo">Besteller:</label>
-        [% SET borrowerInfo = whole.value.other.borrowerFirstname _ ' ' _ whole.value.other.borrowerSurname _ ' (' _ whole.value.other.borrowerCardnumber _ ')'  %]
-        <a target="blank" href="/cgi-bin/koha/members/moremember.pl?borrowernumber=[% whole.value.other.borrowerBorrowernumber %]"><input disabled type="text" name="borrowerinfo" id="borrowerinfo" size="80" value="[% borrowerInfo %]" /></a>
-        <input type="hidden" id="borrowerBorrowernumber" name="borrowerBorrowernumber" value="[% whole.value.other.borrowerBorrowernumber %]" />
-        <input type="hidden" id="borrowerFirstname" name="borrowerFirstname" value="[% whole.value.other.borrowerFirstname %]" />
-        <input type="hidden" id="borrowerSurname" name="borrowerSurname" value="[% whole.value.other.borrowerSurname %]" />
-        <input type="hidden" id="borrowerCardnumber" name="borrowerCardnumber" value="[% whole.value.other.borrowerCardnumber %]" />
-      </li>
+    <fieldset class="rows">
+      <legend>Benachrichtigung / Laufzettel</legend>
+      <ol>
+        <li>
+          <label for="borrowerinfo">Besteller:</label>
+          [% SET borrowerInfo = whole.value.other.borrowerFirstname _ ' ' _ whole.value.other.borrowerSurname _ ' (' _ whole.value.other.borrowerCardnumber _ ')'  %]
+          <a target="blank" href="/cgi-bin/koha/members/moremember.pl?borrowernumber=[% whole.value.other.borrowerBorrowernumber %]"><input disabled type="text" name="borrowerinfo" id="borrowerinfo" size="80" value="[% borrowerInfo %]" /></a>
+          <input type="hidden" id="borrowerBorrowernumber" name="borrowerBorrowernumber" value="[% whole.value.other.borrowerBorrowernumber %]" />
+          <input type="hidden" id="borrowerFirstname" name="borrowerFirstname" value="[% whole.value.other.borrowerFirstname %]" />
+          <input type="hidden" id="borrowerSurname" name="borrowerSurname" value="[% whole.value.other.borrowerSurname %]" />
+          <input type="hidden" id="borrowerCardnumber" name="borrowerCardnumber" value="[% whole.value.other.borrowerCardnumber %]" />
+        </li>
 
-      <li>
-        <label [% IF ( whole.stage == "deliveryInsert" ) %]class="required"[% END %] for="illdeliverylettercode">Benachrichtigung:</label>
-        <select id="illdeliverylettercode" name="illdeliverylettercode" [% IF ( whole.stage == "deliveryInsert" ) %]required="required"[% END %] [% IF ( whole.stage == "deliveryUpdate" ) %]onchange="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] >
-        [% IF ( whole.stage != "deliveryInsert" ) %]
-          <option value="" />
-        [% END %]
-        [% FOREACH letter IN whole.value.other.kohaIllPatronLetters %]
-            [% IF ( ( whole.stage == "deliveryInsert" || whole.stage == "InsertAndPrint" || whole.error) && whole.value.other.illdeliverylettercode == letter.code ) %]
-            <!-- [ % IF ( whole.value.other.illdeliverylettercode == letter.code ) % ] -->
+        <li>
+          <label [% IF ( whole.stage == "deliveryInsert" ) %]class="required"[% END %] for="illdeliverylettercode">Benachrichtigung:</label>
+          <select id="illdeliverylettercode" name="illdeliverylettercode" [% IF ( whole.stage == "deliveryInsert" ) %]required="required"[% END %] [% IF ( whole.stage == "deliveryUpdate" ) %]onchange="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] >
+          [% IF ( whole.stage != "deliveryInsert" ) %]
+            <option value="" />
+          [% END %]
+          [% FOREACH letter IN whole.value.other.kohaIllPatronLetters %]
+            [% IF ( ( whole.stage == "deliveryInsert" || whole.error) && whole.value.other.illdeliverylettercode == letter.code ) %]
               <option value="[% letter.code %]" selected="selected">[% letter.name %]</option>
             [% ELSE %]
               <option value="[% letter.code %]">[% letter.name %]</option>
             [% END %]
-        [% END %]
-        </select>
-      </li>
-
-      <li>
-        <label for="illdeliveryslipprint">Laufzettel drucken:</label>
-        [% IF ( whole.stage == "deliveryUpdate" && ! whole.error ) %]
-          <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
-        [% ELSE %]
-          [% IF whole.value.other.illdeliveryslipprint %]
-            <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" checked="checked" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
-          [% ELSE %]
-            <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
           [% END %]
-        [% END %]
-      </li>
+          </select>
+        </li>
 
-    </ol>
-  </fieldset>
+        <li>
+          <label for="illdeliveryslipprint">Laufzettel drucken:</label>
+          [% IF ( whole.stage == "deliveryUpdate" && ! whole.error ) %]
+            <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
+          [% ELSE %]
+            [% IF whole.value.other.illdeliveryslipprint %]
+              <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" checked="checked" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
+            [% ELSE %]
+              <input type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.stage == "deliveryUpdate" ) %]oninput="actualizePrintButton(document.SLNP_delivery.printButton)"[% END %] />
+            [% END %]
+          [% END %]
+        </li>
 
-  <fieldset class="action">
-    <input name="illrequest_id" id="illrequest_id" value="[% whole.illrequest_id %]" type="hidden" />
-    <input name="backend" id="backend" value="ILLSLNPKoha" type="hidden" />
-    <input name="method" id="method" value="verbucheEingang" type="hidden" />
-    <input name="stage" id="stage" value="commit" type="hidden" />
-    <input name="itemnumber" id="itemnumber" value="[% whole.value.other.itemnumber %]" type="hidden" />
-    <input name="submitAction" id="submitAction" value="submitNotYet" type="hidden" />
+      </ol>
+    </fieldset>
 
-    [% IF ( whole.stage == "deliveryInsert" ) %]
-      <input type="submit" value="Speichern" onclick="submitAction.value='submitButton'; stage.value='InsertAndPrint'" />
-    [% ELSE %]
-      [% IF ( whole.stage == "InsertAndPrint" ) %]
-        <input type="submit" value="Speichern" disabled onclick="submitAction.value='submitButton'; stage.value='commit'" />
-      [% ELSE %]
-        [% IF ( whole.stage == "deliveryUpdate" ) %]
-          <input type="submit" value="Änderungen speichern" onclick="submitAction.value='submitButton'; stage.value='UpdateAndPrint'" />
-          <input type="submit" name="printButton" id="printButton" value="Drucken" disabled onclick="submitAction.value='printButton'" />
-        [% ELSE %]    <!-- whole.stage == "UpdateAndPrint" -->
-          <input type="submit" value="Änderungen speichern" disabled onclick="submitAction.value='submitButton'; stage.value='commit'" />
-          <input type="submit" name="printButton" id="printButton" value="Drucken" disabled onclick="submitAction.value='printButton'" />
-        [% END %]
+    <fieldset class="action">
+      <input type="hidden" name="illrequest_id" id="illrequest_id" value="[% whole.illrequest_id %]" />
+      <input type="hidden" name="backend" id="backend" value="[% request.backend %]" />
+      <input type="hidden" name="method" id="method" value="[% whole.method %]" />
+      <input type="hidden" name="stage" id="stage" value="[% whole.stage %]" />
+      <input type="hidden" name="itemnumber" id="itemnumber" value="[% whole.value.other.itemnumber %]" />
+
+      [% IF ( whole.stage == "deliveryInsert" ) %]
+        <input type="submit" id="submitbutton" name="submitbutton" value="Speichern" onclick="stage.value='InsertAndPrint';" />
+      [% ELSE %]    <!-- whole.stage == "deliveryUpdate" -->
+        <input type="submit" id="submitbutton" name="submitbutton" value="Änderungen speichern" onclick="stage.value='UpdateAndMaybePrint';" />
+        <input type="submit" id="printButton"  name="printButton"  value="Drucken" disabled onclick="stage.value='PrintOnly';" />
       [% END %]
-    [% END %]
 
-    <a class="cancel" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>
-  </fieldset>
-</form>
+      <a class="cancel" id="cancelbutton" name="cancelbutton" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>
+    </fieldset>
+  </form>
+
+[% ELSIF whole.stage == "InsertAndPrint" || whole.stage == "UpdateAndMaybePrint" || whole.stage == "PrintOnly" %]
+
+  <p>Rückkehr zur Fernleihbestellung</p>
+
+  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action=[% here %]>
+    <input style="display:none" type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.value.other.illdeliveryslipprint ) %]checked="checked"[% END %] />
+    <a style="display:none" class="cancel" id="cancelbutton" name="cancelbutton" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>
+  </form>
 
 [% ELSE %]
   <p>Unbekannte Stufe '[% whole.stage %]'. Das sollte sich nicht ereignen.</p>
@@ -216,21 +215,16 @@
 
 <script type= "text/javascript">
     $(document).ready(function() {
-        [% IF whole.stage == "deliveryUpdate" %]
-            actualizePrintButton(document.SLNP_delivery.printButton);
-        [% END %]
-
-        if ( "[% whole.stage %]" == 'InsertAndPrint' || "[% whole.stage %]" == 'UpdateAndPrint' ) {
+        [% IF whole.stage == "InsertAndPrint" || whole.stage == "UpdateAndMaybePrint" || whole.stage == "PrintOnly" %]
             var slipchecked = $("#illdeliveryslipprint").prop('checked');
             if ( slipchecked ) {
                 var ret = printIllProcessingSlip();
+            } else {
+                document.getElementById("cancelbutton").click();
             }
-            [% IF whole.stage == "deliveryUpdate" %]
-                actualizePrintButton(document.SLNP_delivery.printButton);
-            [% END %]
-            //$("#stage").val('commit');
-            //$("#SLNP_delivery").submit();
-        }
+        [% ELSIF whole.stage == "deliveryUpdate" %]
+            actualizePrintButton(document.SLNP_delivery.printButton);
+        [% END %]
 
         $("#printButton").on('click', function(e){
             e.preventDefault();
@@ -265,7 +259,7 @@
           slipcount = 2;
         }
         var borrowernumbers = [];
-        borrowernumbers.push($("#sendingIllLibraryBorrowernumber").val());
+        borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
         borrowernumbers.push("[% whole.value.request.borrowernumber %]");
         var data = {
             use_letter: "[% whole.value.other.illdeliveryslipcode %]",
@@ -288,6 +282,7 @@
 
                 processingslipwin.onload = function()
                 {
+                    document.getElementById("cancelbutton").click();
                     processingslipwin.print();
                     processingslipwin.close();
                 };
@@ -295,6 +290,8 @@
             },
             error: function() {
                 alert( _("A server error occured processing the processing slip print request.") );
+
+                document.getElementById("cancelbutton").click();
             }
         });
     }

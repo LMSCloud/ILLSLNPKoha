@@ -469,7 +469,7 @@ sub create {
 }
 
 # stages if status=='REQ':   init -> deliveryInsert -> InsertAndPrint-> commit
-# stages if status=='RECVD': init -> deliveryUpdate -> UpdateAndPrint-> commit or only: init -> deliveryUpdate -> commit
+# stages if status=='RCVD':  init -> deliveryUpdate -> UpdateAndMaybePrint-> commit  or  init -> deliveryUpdate -> PrintOnly-> commit
 sub verbucheEingang {
     my ($self, $params) = @_;
 
@@ -485,7 +485,7 @@ sub verbucheEingang {
         next    => "illview",
     };
 
-    if ( ( $stage eq 'InsertAndPrint' || $stage eq 'UpdateAndPrint' || $stage eq 'commit' ) && !$params->{other}->{'sendingIllLibraryBorrowernumber'} ) {
+    if ( ( $stage eq 'InsertAndPrint' || $stage eq 'UpdateAndMaybePrint' || $stage eq 'PrintOnly' || $stage eq 'commit' ) && !$params->{other}->{'sendingIllLibraryBorrowernumber'} ) {
         $stage = 'errorNoSendingIllLibraryInfo';
     }
     $backend_result->{illrequest_id} = $params->{request}->illrequest_id;
@@ -630,13 +630,12 @@ sub verbucheEingang {
             }
         }
 
-    } elsif ($stage eq 'InsertAndPrint' || $stage eq 'UpdateAndPrint' || $stage eq 'commit') {
-        # 'InsertAndPrint': we insert illrequestattributes records, update the illrequest record, maybe print a letter (but not the delivery slip) and return.
-        # 'UpdateAndPrint': we update illrequestattributes records, update the illrequest record, maybe print a letter (but not the delivery slip) and return.
-        # 'commit': maybe we print a letter (only if submitAction eq 'printButton') and return.
+    } elsif ($stage eq 'InsertAndPrint' || $stage eq 'UpdateAndMaybePrint' || $stage eq 'PrintOnly' || $stage eq 'commit') {
+        # 'InsertAndPrint': we insert illrequestattributes records, update the illrequest record, print a letter (the delivery slip is printed in a separate tab, if checked) and return.
+        # 'UpdateAndMaybePrint': we update illrequestattributes records, update the illrequest record, maybe print a letter (the delivery slip is printed in a separate tab, if checked) and return.
+        # 'PrintOnly': we do not update illrequestattributes records or the illrequest record, but print a letter and return.
 
-        if ( $params->{other}->{submitAction} ne 'printButton' &&    # if submitAction eq 'printButton' we do NOT store the params
-             ($stage eq 'InsertAndPrint' || $stage eq 'UpdateAndPrint') ) {    # 'InsertAndPrint'/'UpdateAndPrint' precede 'commit'; $stage eq 'commit' is used only for closing the dialog (and for printing if submitAction eq 'printButton')
+        if ( $stage eq 'InsertAndPrint' || $stage eq 'UpdateAndMaybePrint' ) {    # 'InsertAndPrint'/'UpdateAndMaybePrint' precede 'commit'; $stage eq 'commit' is used only for closing the dialog
             my $illreq_attributes = {};
 
             # volume count of the received medium is stored in illattributes and in analog form in items.materials
@@ -757,7 +756,7 @@ sub verbucheEingang {
         }
 
         # the fields are already stored, so check only if to generate a new borrower notice
-        if ( $params->{other}->{illdeliverylettercode} ) {    # either (Deliveryinsert->InsertAndPrint submit) or (DeliveryUpdate->UpdateAndPrint submit or printButton for letter (not slip))
+        if ( $params->{other}->{illdeliverylettercode} ) {    # either (Deliveryinsert->InsertAndPrint submit) or (DeliveryUpdate->UpdateAndMaybePrint submit) or (DeliveryUpdate->PrintOnly submit for letter (not slip))
 
             my $fieldResults = $params->{request}->illrequestattributes->search();
             my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
@@ -922,7 +921,6 @@ sub sendeZurueck {
     if (!$stage || $stage eq 'init') {
         $backend_result->{stage}  = "confirmcommit";
     } elsif ($stage eq 'storeandprint' || $stage eq 'commit') {
-        $backend_result->{value}->{other}->{illshipbackslipprint} = $params->{other}->{illshipbackslipprint};
 
         # read relevant data from illrequestatributes
         my @interesting_fields = (
@@ -944,13 +942,14 @@ sub sendeZurueck {
         }
 
         # finally delete biblio and items data
-        delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        #XXXWH delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
         $params->{request}->status('COMP')->store;
 
         $backend_result->{value}->{request} = $params->{request};
+        $backend_result->{value}->{other}->{illshipbackslipprint} = $params->{other}->{illshipbackslipprint};
 
     } else {
         # in case of faulty or testing stage, we just return the standard $backend_result with original stage
@@ -1309,8 +1308,7 @@ Create or update a basic items record from the sent SLNPFLCommand data
 sub slnp2items {
     my ($self, $params, $biblionumber, $itemfieldsvals) = @_;
     my ($biblionumberItem, $biblioitemnumberItem, $itemnumberItem) = (undef,undef,undef);
-
-    if ( ! keys $itemfieldsvals )    # create items record
+    if ( ! keys %{$itemfieldsvals} )    # create items record
     {
         my $item_hash;
         $item_hash->{barcode} = scalar $params->{other}->{attributes}->{zflorderid};
