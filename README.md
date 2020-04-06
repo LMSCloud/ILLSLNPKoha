@@ -22,11 +22,13 @@ The remaining features of this ILL backend are accessible via the standard ILL f
 * Clone the repository into this directory, so you will end up with '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha'.
 * In the 'ILLSLNPKoha' directory switch to the branch you wish to use (in the moment only 'master' (matching Koha-LMSCloud master) is supported).
 * Load default values into table 'systempreferences' and into table 'letter' and update koha-conf.xml by calling
-`  export KOHA_INSTANZ=<the_name_of_your_Koha_instance>
-  export KOHA_CONF=/etc/koha/sites/$KOHA_INSTANZ/koha-conf.xml
-  export PERL5LIB=/usr/share/koha/lib
-  cd $PERL5LIB/Koha/Illbackends/ILLSLNPKoha/install
-  ./install.pl`
+`
+  export KOHA_INSTANZ=<the_name_of_your_Koha_instance>; 
+  export KOHA_CONF=/etc/koha/sites/$KOHA_INSTANZ/koha-conf.xml; 
+  export PERL5LIB=/usr/share/koha/lib; 
+  cd $PERL5LIB/Koha/Illbackends/ILLSLNPKoha/install; 
+  ./install.pl; 
+`
 * Activate the Koha ILL framwork and ILL backends by enabling the 'ILLModule' system preference.
 * Check the <interlibrary_loans> division in your koha-conf.xml.
 * Copy the Net::Server::Fork configuration file '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha/conf/ILLZFLServerKoha.conf' into directory '/etc/koha/sites/{name-of-your-Koha-instance}/'.
