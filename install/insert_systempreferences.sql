@@ -7,7 +7,7 @@ INSERT IGNORE INTO systempreferences (variable, value, options, explanation, typ
 ('ILLItemLostBorrowerLettercode', 'ILLSLNP_ITEMLOST_BORROWER', NULL, 'code of letter that will be sent to ordering borrower if item is lost before check out', 'Free'), 
 ('ILLItemLostLibraryLettercode', 'ILLSLNP_ITEMLOST_LIBRARY', NULL, 'code of letter that will be sent to owning library if item is lost after receipt', 'Free'), 
 ('ILLNotDeliveredLettercode', 'ILLSLNP_NOT_DELIVERED', NULL, 'letter code of notice to borrower informing that the ILL order will not be delivered by the owning library', 'Free'), 
-('ILLNoticesLetterCodes', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_1|ILLSLNP_DELIVERY_NOTICE_CHARGE_2|ILLSLNP_DELIVERY_NOTICE_NO_CHARGE', NULL, 'Provide a list of letter codes (separate multiple codes with |) which can be used to send notices on ILL receipts.', 'Free'), 
+('ILLNoticesLetterCodes', 'ILLSLNP_DELIVERY_NOTICE_1_CHARGE|ILLSLNP_DELIVERY_NOTICE_2_CHARGE|ILLSLNP_DELIVERY_NOTICE_CHARGE_NOT', NULL, 'Provide a list of letter codes (separate multiple codes with |) which can be used to send notices on ILL receipts.', 'Free'), 
 ('ILLRequestConfirm', 'ILLSLNP_REQUEST_CONFIRM', NULL, 'letter code of notice to borrower that his ILL request has been confirmed by a owning library', 'Free'), 
 ('ILLShipBackLettercode', 'ILLSLNP_SHIPBACK_SLIP', NULL, 'letter code of slip used when sending back medium to owning ILL library', 'Free');
 

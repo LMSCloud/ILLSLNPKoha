@@ -173,7 +173,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'print', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_1', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_1_CHARGE', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
@@ -205,7 +205,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'email', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_1', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_1_CHARGE', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
@@ -237,7 +237,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'print', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_2', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_2_CHARGE', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
@@ -269,7 +269,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'email', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_2', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_2_CHARGE', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
@@ -301,7 +301,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'print', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_NO_CHARGE', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_NOT', '', 'PFL-Eingangsbenachrichtigung', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
@@ -333,7 +333,7 @@ Mit freundlichen Grüßen,
 Ihre <<branches.branchaddress1>>
 ', 'email', 'default'), 
 
-('circulation', 'ILLSLNP_DELIVERY_NOTICE_NO_CHARGE', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
+('circulation', 'ILLSLNP_DELIVERY_NOTICE_CHARGE_NOT', '', 'PFL-Eingangsbenachrichtigung ', 0, 'Fernleihbenachrichtigung', 'Sehr geehrte/r <<borrowers.title>> <<borrowers.surname>>,
 
 Für Sie liegt eine Fernleihbestellung zur Abholung bereit:
 
