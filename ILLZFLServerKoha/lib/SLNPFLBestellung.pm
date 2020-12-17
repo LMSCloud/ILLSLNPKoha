@@ -47,8 +47,8 @@ sub doSLNPFLBestellung {
         $args->{stage} = 'commit';
 
         # fields for table illrequests
-        my $branchcode = C4::Context->preference("ILLDefaultBranch");
-        $args->{'branchcode'} = $branchcode;
+        my @illDefaultBranch =split( /\|/, C4::Context->preference("ILLDefaultBranch") );
+        $args->{'branchcode'} = $illDefaultBranch[0];
         if ( ( defined $params->{AufsatzAutor} && length($params->{AufsatzAutor}) ) ||
              ( defined $params->{AufsatzTitel} && length($params->{AufsatzTitel}) )    ) {
             $args->{'medium'} = "Article";
