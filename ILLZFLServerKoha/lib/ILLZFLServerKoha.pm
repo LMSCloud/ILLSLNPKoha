@@ -416,7 +416,7 @@ sub process_request {
         $self->log(1, getTime() . " read from STDIN:$line:");
         
         $inbuf .= $line;
-        if ( $inbuf =~ /^\s*SLNPEndCommand\s*/m )
+        if ( $inbuf =~ /^\s*SLNPEndCommand\s*/m || $inbuf =~ /^\s*SLNPQuit\s*/m )
         {
             
             $self->log(1, getTime() . " New SLNP command received:$inbuf:");
@@ -504,7 +504,7 @@ sub analyzeSLNPReq {
     my ($slnpreqlineNo, @level, $lv, $cmd);
     $self->log(1, getTime() . " lib::ILLZFLServerKoha::analyzeSLNPReq Start" );
 
-    if ( $slnpreq =~ /^\s*SLNPEndCommand\s*/m ) {
+    if ( $slnpreq =~ /^\s*SLNPEndCommand\s*/m || $slnpreq =~ /^\s*SLNPQuit\s*/m ) {
         $lv = 0;
         $level[$lv] = 0; 
         $slnpreqlineNo = 1;

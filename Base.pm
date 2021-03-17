@@ -1,6 +1,6 @@
 package Koha::Illbackends::ILLSLNPKoha::Base;
 
-# Copyright LMSCLoud GmbH 2018
+# Copyright 2018-2021 (C) LMSCLoud GmbH
 #
 # This file is part of Koha.
 #
@@ -429,6 +429,17 @@ sub create {
 
             $params->{request}->store;
 
+            # Consortium HBZ has two ways of calling SLNPFLBestellung:
+            # A) directly by ZFL-Server: BestellID is correct and of form yyyyiiiiiii with yyyy: current year and iiiiiii: serial number, e.g. 19990000123
+            # B) by a perl script from the end user portal: BestellID is always dummy 999999999
+            # In case B) we replace the not unique '999999999' by unique yyyyiiiiiiiF with yyyy: current year and iiiiiii: illrequests.illrequest_id and F: text 'F'
+            if ( $params->{request}->orderid() eq '999999999' ) {
+                my $newOrderId = sprintf("%04d%07dF", $now->year(), $params->{request}->illrequest_id() % 10000000);
+                $params->{other}->{attributes}->{zflorderid} = $newOrderId;    # content for items.barcode
+                $params->{request}->orderid($newOrderId);    # content for hit list table column 'Order ID' (en) / 'Bestell-ID' (de)
+                $params->{request}->store;
+            }
+
             # populate table illrequestattributes
             $params->{other}->{attributes}->{itemnumber} = $itemnumber;
             while (my ($type, $value) = each %{$params->{other}->{attributes}}) {
@@ -441,10 +452,11 @@ sub create {
                     })->store;
                 };
             }
-            # store illrequest.illrequest_id in items.stocknumber
-            $self->slnp2items($params,$biblionumber,{   homebranch => $params->{request}->branchcode(),
-                                                        stocknumber => $params->{request}->illrequest_id(),
-                                                        holdingbranch => $params->{request}->branchcode()
+            # update items record: store (maybe modified) zflorderid in items.barcode, illrequest.illrequest_id in items.stocknumber, etc.
+            $self->slnp2items($params,$biblionumber,{   barcode => scalar $params->{other}->{attributes}->{zflorderid},
+                                                        homebranch => $params->{request}->branchcode(),,
+                                                        holdingbranch => $params->{request}->branchcode(),
+                                                        stocknumber => $params->{request}->illrequest_id()
                                                     } );
 
             # send ILL request confirmation notice (e.g. with letter.code ILLSLNP_REQUEST_CONFIRM) to ordering borrower if configured (syspref ILLRequestConfirm)
@@ -1311,7 +1323,6 @@ sub slnp2items {
     if ( ! keys %{$itemfieldsvals} )    # create items record
     {
         my $item_hash;
-        $item_hash->{barcode} = scalar $params->{other}->{attributes}->{zflorderid};
         $item_hash->{homebranch} = $params->{request}->branchcode();
         $item_hash->{notforloan} = -1;     # 'ordered'
         my $itemcallnumber = 'Fernleihe ' . $params->{other}->{attributes}->{shelfmark};
