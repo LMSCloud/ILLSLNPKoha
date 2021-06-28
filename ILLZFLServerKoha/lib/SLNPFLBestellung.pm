@@ -84,6 +84,9 @@ sub doSLNPFLBestellung {
         if ( defined $params->{Seitenangabe} && length($params->{Seitenangabe}) ) {
             $args->{attributes}->{article_pages} = $params->{Seitenangabe};
         };
+        if ( defined $params->{AusgabeOrt} && length($params->{AusgabeOrt}) ) {
+            $args->{attributes}->{pickUpLocation} = $params->{AusgabeOrt};
+        };
 
         my $backend_result = $slnp_illbackend->backend_create($args);
 

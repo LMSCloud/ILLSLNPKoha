@@ -370,7 +370,7 @@ my $SLNPCmds = {
                             'regex' => '^\s*(.+)\s*$',
             },
 
-            # <Ausgabestelle für Abholung>
+            # <Ausgabestelle für Abholung> (HBZ-NRW überträgt hier die Bezeichnung der Abholzweigstelle im Klartext; branchcode wäre ebenfalls möglich)
             'AusgabeOrt' =>
             {
                             'level' => 1,
@@ -855,6 +855,9 @@ sub cmdFLBestellung {
     
     $param = $self->readSLNPParam($slnpcmd,1,"Bemerkung");
     $params->{Bemerkung} = $param->[0]->[0] if $param;
+    
+    $param = $self->readSLNPParam($slnpcmd,1,"AusgabeOrt");
+    $params->{AusgabeOrt} = $param->[0]->[0] if $param;
 
     $self->log(1, getTime() . " cmdFLBestellung params:" . Dumper($params));
     
