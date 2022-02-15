@@ -954,7 +954,7 @@ sub sendeZurueck {
         }
 
         # finally delete biblio and items data
-        #XXXWH delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
