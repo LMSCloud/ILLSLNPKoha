@@ -1,0 +1,15 @@
+#########################################################################################                                                                       
+# 02.03.2022 
+
+# Die 3 bzw. 5 Kommandos, um den Branch v18.05.05lmscloud_branch im Repository anzulegen:
+#
+# 3. Kommando, den Branch publizieren:
+ git add .
+# git commit -m "forked new branch v18.05.05lmscloud_branch from master"
+# git push origin v18.05.05lmscloud_branch
+#
+# 2.Kommando (hier, also nach 'cd ILLALV'), den Branch v18.05.05lmscloud_branch lokal anlegen:
+# git checkout -b v18.05.05lmscloud_branch
+#
+# 1.Kommando (eine Etage höher), erstmal den Branch master hierher klonen:
+# git clone git@github.com:LMSCloud/ILLSLNPKoha.git
