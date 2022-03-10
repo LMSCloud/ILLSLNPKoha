@@ -1,6 +1,3 @@
-[% USE Asset %]
-
-
 [% IF whole.error %]
     <p>Unbekannter Fehler</p>
 [% END %]
@@ -61,63 +58,66 @@
 [% END %]
 
 
+[% BLOCK backend_jsinclude %]
+    [% Asset.js("lib/jquery/jquery.js") | $raw %]
 
-<script type= "text/javascript">
+    <script type= "text/javascript">
 
-    $(document).ready(function() {
-        [% IF ! ( request.status == 'RECVD' || request.status == 'CHKDIN' || request.status == 'CNCLDFU' ) %]
-            submitbutton.disabled = true;
-        [% END %]
+        $(document).ready(function() {
+            [% IF ! ( request.status == 'RECVD' || request.status == 'CHKDIN' || request.status == 'CNCLDFU' ) %]
+                submitbutton.disabled = true;
+            [% END %]
 
-        [% IF whole.stage == 'storeandprint' %]
-            var slipchecked = $("#illshipbackslipprint").prop('checked');
-            if ( slipchecked ) {
-                var ret = printIllShipbackSlip();
-            } else {
-                document.getElementById("cancelbutton").click();
-            }
-        [% END %]
-    });    // $(document).ready(function() END
-
-    function printIllShipbackSlip () {
-        var borrowernumbers = [];
-        borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
-        borrowernumbers.push("[% whole.value.request.borrowernumber %]");
-
-        var data = {
-            use_letter: "[% whole.value.other.illshipbacklettercode %]",
-            use_email: '',
-            slipcount: '1',
-            illrequestid: "[% whole.illrequest_id %]",
-            biblionumber: "[% request.biblio_id %]",
-            itemnumber: "[% whole.value.other.itemnumber %]",
-            duedate: "[% whole.value.other.duedate %]",
-            borrowernumbers: borrowernumbers
-        };
-
-        $.ajax({
-            data: data,
-            type: 'POST',
-
-            url: '/cgi-bin/koha/svc/members/genIllDeliverySlip',
-            success: function(data) {
-
-                var processingslipwin = window.open("/cgi-bin/koha/tools/download-files.pl?filename=" + data.printedfile + "&op=download");
-
-                processingslipwin.onload = function()
-                {
+            [% IF whole.stage == 'storeandprint' %]
+                var slipchecked = $("#illshipbackslipprint").prop('checked');
+                if ( slipchecked ) {
+                    var ret = printIllShipbackSlip();
+                } else {
                     document.getElementById("cancelbutton").click();
-                    processingslipwin.print();
-                    processingslipwin.close();
-                };
+                }
+            [% END %]
+        });    // $(document).ready(function() END
 
-            },
-            error: function() {
-                alert( _("A server error occured processing the processing slip print request.") );
+        function printIllShipbackSlip () {
+            var borrowernumbers = [];
+            borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
+            borrowernumbers.push("[% whole.value.request.borrowernumber %]");
 
-                document.getElementById("cancelbutton").click();
-            }
-        });
-    }
+            var data = {
+                use_letter: "[% whole.value.other.illshipbacklettercode %]",
+                use_email: '',
+                slipcount: '1',
+                illrequestid: "[% whole.illrequest_id %]",
+                biblionumber: "[% request.biblio_id %]",
+                itemnumber: "[% whole.value.other.itemnumber %]",
+                duedate: "[% whole.value.other.duedate %]",
+                borrowernumbers: borrowernumbers
+            };
 
-</script>
+            $.ajax({
+                data: data,
+                type: 'POST',
+
+                url: '/cgi-bin/koha/svc/ill/genIllDeliverySlip',
+                success: function(data) {
+
+                    var processingslipwin = window.open("/cgi-bin/koha/tools/download-files.pl?filename=" + data.printedfile + "&op=download");
+
+                    processingslipwin.onload = function()
+                    {
+                        document.getElementById("cancelbutton").click();
+                        processingslipwin.print();
+                        processingslipwin.close();
+                    };
+
+                },
+                error: function() {
+                    alert( _("A server error occured processing the processing slip print request.") );
+
+                    document.getElementById("cancelbutton").click();
+                }
+            });
+        }
+
+    </script>
+[% END %]

@@ -1,8 +1,3 @@
-[% USE Asset %]
-[% SET footerjs = 1 %]
-
-
-
 [% IF whole.error %]
     <p>Unbekannter Fehler</p>
 [% END %]
@@ -56,12 +51,16 @@
 
 
 
-<script type= "text/javascript">
+[% BLOCK backend_jsinclude %]
+    [% IF ! ( request.status == 'REQ' || request.status == 'CNCLDFU' ) %]
+        [% Asset.js("lib/jquery/jquery.js") | $raw %]
 
-    $(document).ready(function() {
-        [% IF ! ( request.status == 'REQ' || request.status == 'CNCLDFU' ) %]
-            submitbutton.disabled = true;
-        [% END %]
-    })
+        <script type= "text/javascript">
 
-</script>
+            $(document).ready(function() {
+                submitbutton.disabled = true;
+            })
+
+        </script>
+    [% END %]
+[% END %]

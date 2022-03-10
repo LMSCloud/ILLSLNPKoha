@@ -1,6 +1,3 @@
-[% USE Asset %]
-
-
 [% IF whole.error %]
     <p>Unbekannter Fehler</p>
 [% END %]
@@ -64,13 +61,16 @@
 
 
 
-<script type= "text/javascript">
+[% BLOCK backend_jsinclude %]
+    [% IF ! ( request.status == 'LOSTBCO' || request.status == 'LOSTACO' ) %]
+        [% Asset.js("lib/jquery/jquery.js") | $raw %]
 
-    $(document).ready(function() {
-        [% IF ! ( request.status == 'LOSTBCO' || request.status == 'LOSTACO' ) %]
-            submitbutton.disabled = true;
-        [% END %]
+        <script type= "text/javascript">
 
-    });
+            $(document).ready(function() {
+                    submitbutton.disabled = true;
+            });
 
-</script>
+        </script>
+    [% END %]
+[% END %]

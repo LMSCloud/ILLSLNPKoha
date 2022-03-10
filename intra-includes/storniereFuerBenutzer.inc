@@ -1,5 +1,3 @@
-[% USE Asset %]
-
 [% IF whole.error %]
     <p>Unbekannter Fehler</p>
 [% END %]
@@ -57,12 +55,16 @@
 
 
 
-<script type= "text/javascript">
+[% BLOCK backend_jsinclude %]
+    [% IF ! ( request.status == 'REQ' ) %]
+        [% Asset.js("lib/jquery/jquery.js") | $raw %]
 
-    $(document).ready(function() {
-        [% IF ! ( request.status == 'REQ' ) %]
-            submitbutton.disabled = true;
-        [% END %]
-    })
+        <script type= "text/javascript">
 
-</script>
+            $(document).ready(function() {
+                submitbutton.disabled = true;
+            })
+
+        </script>
+    [% END %]
+[% END %]

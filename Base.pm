@@ -22,23 +22,25 @@ use Carp;
 use File::Basename qw( dirname );
 use Data::Dumper;
 
-use Koha::Libraries;
 use Clone qw( clone );
 use Locale::Country;
 use XML::LibXML;
 use MARC::Record;
-use C4::Context;
-use C4::Biblio qw( AddBiblio );
-use Koha::Illrequest::Config;
 use Try::Tiny;
 use URI::Escape;
 use YAML;
 use JSON qw( to_json );
+
+use C4::Context;
+use C4::Biblio qw( AddBiblio DelBiblio );
+use C4::Letters;
+use Koha::Illrequest::Config;
+
+use Koha::DateUtils qw( dt_from_string output_pref );
+use Koha::Item qw( safe_to_delete safe_delete );
+use Koha::Libraries;
 use Koha::Patron::Attributes;
 use Koha::Patron::Categories;
-use C4::Letters;
-use C4::Biblio;
-use Koha::DateUtils qw(dt_from_string output_pref);
 
 
 =head1 NAME
@@ -83,7 +85,66 @@ sub new {
     my ( $class ) = @_;
     my $self = {framework => 'FA'};
     bless( $self, $class );
+    $self->_logger(Koha::Logger->get({ interface => 'Koha.Illbackends.ILLSLNPKoha', category => 'Koha::Illbackends::ILLSLNPKoha'}));
+
     return $self;
+}
+
+=head3 _logger
+
+    my $logger = $illbackend->_logger($logger);
+    my $logger = $illbackend->_logger;
+
+Getter/Setter for our Logger object.
+
+=cut
+
+sub _logger {
+  my ($self, $logger) = @_;
+  $self->{logger} = $logger if ($logger);
+  return $self->{logger};
+}
+
+=head3 logHash
+
+    $illbackend->_logger()->trace('myMethod() my_hash:' . logHash(\%my_hash) . ':');
+
+# method for preparing a referenced hash for logging (used if only one hash level is of interest)
+
+=cut
+
+sub logHash {
+    my ($logHash) = @_;
+    my $logStr = '';
+
+    for (keys %{$logHash}) {
+        if ( defined($logHash->{$_}) ) {
+            $logHash->{$_} =~ s/^\s+|\s+$//g;
+            $logStr .= "$_:$logHash->{$_}:\n";
+        } else{
+            $logStr .= "$_:undef:\n";
+        }
+    }
+    return $logStr;
+}
+
+=head3 logArray
+
+    $illbackend->_logger()->trace('myMethod() my_hash:' . logArray(\%my_hash) . ':');
+
+# method for preparing a referenced array for logging
+
+=cut
+
+sub logArray {
+    my ($logArray) = @_;
+    my $logStr = '';
+
+    foreach my $val (@{$logArray}) {
+        $val =~ s/^\s+|\s+$//g;
+        $logStr .= "value:$val:\n";
+    }
+    return $logStr;
 }
 
 =head3 _config
@@ -108,7 +169,8 @@ sub _config {
 =cut
 
 sub status_graph {
-  return {
+  my $backendStatusGraph = {
+
     # status 'Received' (This action is used when the ordered ILL item is received in the library of the ordering borrower.)
     RECVD => {
       prev_actions   => ['REQ',],
@@ -116,9 +178,10 @@ sub status_graph {
       name           => 'Eingangsverbucht',
       ui_method_name => 'Eingang verbuchen',
       method         => 'verbucheEingang',
-      next_actions   => [],    # in reality: ['CHKDOUT', 'LOSTBCO']
+      next_actions   => [ 'SNTBCK', 'RECVDUPD', 'LOSTHOWTO' ],
       ui_method_icon => 'fa-check',
     },
+
     # Pseudo status, not stored in illrequests. Sole purpose: displaying 'Eingang bearbeiten' dialog for update (status stays unchanged)
     RECVDUPD => {
       prev_actions   => ['RECVD', 'CHKDOUT', 'CHKDIN'],
@@ -126,9 +189,10 @@ sub status_graph {
       name           => 'Eingangsverbucht',
       ui_method_name => 'Eingang bearbeiten',
       method         => 'verbucheEingang',
-      next_actions   => [],    # in reality: status stays unchanged
+      next_actions   => [],
       ui_method_icon => 'fa-check',
     },
+
     # status 'Checkedout' (not for GUI, now internally handled by itemCheckedOut(), called by C4::Circulation::AddIssue() )
     CHKDOUT => {
       prev_actions   => [], # Officially empty, so not used in GUI. in reality: ['RECVD']
@@ -136,9 +200,10 @@ sub status_graph {
       name           => 'Ausgeliehen',
       ui_method_name => 'Aufruf_durch_Koha_Ausleihe',    # not used in GUI
       method         => 'leiheAus',
-      next_actions   => [],    # in reality: ['CHKDIN', 'LOSTACO']
+      next_actions   => [ 'RECVDUPD', 'LOSTHOWTO' ],
       ui_method_icon => 'fa-check',
     },
+
     # status 'Checkedin' (not for GUI, now internally handled by itemCheckedIn(), called by C4::Circulation::AddReturn() )
     CHKDIN => {
       prev_actions   => [], # Officially empty, so not used in GUI. in reality: ['CHKDOUT']
@@ -146,19 +211,21 @@ sub status_graph {
       name           => "R\N{U+fc}ckgegeben",
       ui_method_name => 'Aufruf_durch_Koha_Rueckgabe',    # not used in GUI
       method         => 'gebeRueck',
-      next_actions   => [],    # in reality: ['COMP', 'LOSTACO']
+      next_actions   => [ 'SNTBCK', 'RECVDUPD', 'LOSTHOWTO' ],
       ui_method_icon => 'fa-check',
     },
+
     # Pseudo status, not stored in illrequests. Sole purpose: displaying "Rueckversenden" dialog (status becomes 'COMP')
     SNTBCK => { # medium is sent back, mark this ILL request as COMP
-        prev_actions   => ['RECVD', 'CNCLDFU', 'CHKDIN'],
-        id             => 'SNTBCK',
-        name           => "Zur\N{U+fc}ckversandt",
-        ui_method_name => "R\N{U+fc}ckversenden",
-        method         => 'sendeZurueck',
-        next_actions   => [],    # in reality: ['COMP']
-        ui_method_icon => 'fa-check',
+      prev_actions   => ['RECVD', 'CNCLDFU', 'CHKDIN'],
+      id             => 'SNTBCK',
+      name           => "Zur\N{U+fc}ckversandt",
+      ui_method_name => "R\N{U+fc}ckversenden",
+      method         => 'sendeZurueck',
+      next_actions   => [],
+      ui_method_icon => 'fa-check',
     },
+
     # Pseudo status, not stored in illrequests. Sole purpose: displaying 'Verlust buchen' dialog (status stays unchanged)
     LOSTHOWTO => {
       prev_actions   => ['RECVD', 'CHKDOUT', 'CHKDIN'],
@@ -166,9 +233,10 @@ sub status_graph {
       name           => 'Verlust HowTo',
       ui_method_name => 'Verlust buchen',
       method         => 'bucheVerlust',
-      next_actions   => [],    # in reality: status stays unchanged
+      next_actions   => [],
       ui_method_icon => 'fa-times',
     },
+
     # status 'LostBeforeCheckOut' (not for GUI, now internally handled by itemLost(), called by cataloguing::additem.pl and catalogue::updateitem.pl )
     LOSTBCO => { # lost by library Before CheckOut
       prev_actions   => [], # Officially empty, so not used in GUI. in reality: ['RECVD']
@@ -176,9 +244,10 @@ sub status_graph {
       name           => 'Verlust vor Ausleihe',
       ui_method_name => 'Aufruf_durch_Koha_Verlust-Buchung',    # not used in GUI
       method         => 'itemLost',
-      next_actions   => [],    # in reality: ['COMP']
+      next_actions   => [ 'LOST' ],
       ui_method_icon => 'fa-times',
     },
+
     # status 'LostAfterCheckOut' (not for GUI, now internally handled by itemLost(), called by cataloguing::additem.pl and catalogue::updateitem.pl )
     LOSTACO => { # lost by user After CheckOut or by library after CheckIn
       prev_actions   => [], # Officially empty, so not used in GUI. in reality: ['CHKDOUT', 'CHKDIN']
@@ -186,9 +255,10 @@ sub status_graph {
       name           => 'Verlust',
       ui_method_name => 'Aufruf_durch_Koha_Verlust-Buchung',    # not used in GUI
       method         => 'itemLost',
-      next_actions   => [],    # in reality: ['COMP']
+      next_actions   => [ 'LOST' ],
       ui_method_icon => 'fa-times',
     },
+
     # Pseudo status, not stored in illrequests. Sole purpose: displaying 'Verlust melden' dialog (status becomes 'COMP')
     LOST => {
       prev_actions   => ['LOSTBCO', 'LOSTACO'],
@@ -196,9 +266,10 @@ sub status_graph {
       name           => 'Verlustgebucht',
       ui_method_name => 'Verlust melden',
       method         => 'meldeVerlust',
-      next_actions   => ['COMP'],
+      next_actions   => [],
       ui_method_icon => 'fa-times',
     },
+
     # status 'CancelledForUser'
     CNCLDFU => {
       prev_actions   => ['REQ'],
@@ -206,52 +277,55 @@ sub status_graph {
       name           => 'Storniert',
       ui_method_name => 'Bestellung stornieren',
       method         => 'storniereFuerBenutzer',
-      next_actions   => [],    # in reality: ['COMP']
+      next_actions   => [ 'SNTBCK', 'NEGFLAG' ],
       ui_method_icon => 'fa-times',
     },
+
     # Pseudo status, not stored in illrequests. Sole purpose: displaying 'Negativ-Kennzeichen' dialog (status becomes 'COMP')
     NEGFLAG => {
-        prev_actions   => ['REQ', 'CNCLDFU'],
-        id             => 'NEGFLAG',
-        name           => "Negativ/gel\N{U+f6}scht",
-        #ui_method_name => "Negativ-Kennzeichen / l\N{U+f6}schen",
-        ui_method_name => 'Negativ-Kennzeichen',
-        method         => 'kennzeichneNegativ',
-        next_actions   => [],    # in reality: ['COMP']
-        ui_method_icon => 'fa-times',
+      prev_actions   => ['REQ', 'CNCLDFU'],
+      id             => 'NEGFLAG',
+      name           => "Negativ/gel\N{U+f6}scht",
+      ui_method_name => 'Negativ-Kennzeichen',
+      method         => 'kennzeichneNegativ',
+      next_actions   => [],
+      ui_method_icon => 'fa-times',
     },
 
     # status of core graph used in this ill backend:
     REQ => {
-        prev_actions   => [ 'QUEUED' ],
-        id             => 'REQ',
-        name           => 'Requested',
-        ui_method_name => 'Confirm request',
-        method         => 'confirm',
-        #next_actions   => [ 'RECVD' ],
-        next_actions   => [ ],
-        ui_method_icon => 'fa-check',
+      prev_actions   => [ 'QUEUED' ],
+      id             => 'REQ',
+      name           => 'Requested',
+      ui_method_name => 'Confirm request',
+      method         => 'confirm',
+      next_actions   => [ 'NEGFLAG', 'RECVD', 'CNCLDFU' ],
+      ui_method_icon => 'fa-check',
     },
+
     REQREV => {
-        prev_actions   => [  ],
-        id             => 'REQREV',
-        name           => 'Request reverted',
-        ui_method_name => 'Revert Request',
-        method         => 'cancel',
-        next_actions   => [  ],
-        ui_method_icon => 'fa-times',
+      prev_actions   => [  ],
+      id             => 'REQREV',
+      name           => 'Request reverted',
+      ui_method_name => 'Revert Request',
+      method         => 'cancel',
+      next_actions   => [],
+      ui_method_icon => 'fa-times',
     },
+
     # this leads to the frameworks confirm_delete and delete actions, that are too crude for ILLSLNPKoha, so it is not activated.
     #    KILL => {
-    #        prev_actions   => [ 'REQ', 'CNCLDFU' ],
-    #        id             => 'KILL',
-    #        name           => 'Negativ-Kennzeichen',
-    #        ui_method_name => "L\N{U+f6}schung / Negativ-Kennzeichen",
-    #        method         => 'delete',
-    #        next_actions   => [  ],
-    #        ui_method_icon => 'fa-times',
+    #      prev_actions   => [ 'REQ', 'CNCLDFU' ],
+    #      id             => 'KILL',
+    #      name           => 'Negativ-Kennzeichen',
+    #      ui_method_name => "L\N{U+f6}schung / Negativ-Kennzeichen",
+    #      method         => 'delete',
+    #      next_actions   => [],
+    #      ui_method_icon => 'fa-times',
     #    },
+
     };
+    return $backendStatusGraph;
 }
 
 sub name {
@@ -270,6 +344,8 @@ capability is not implemented.
 sub capabilities {
     my ($self, $name) = @_;
     my ($query) = @_;
+
+    #$self->_logger->trace("capabilities() START  name:$name:");
     my $capabilities = {
 
         # experimental, general access, not used yet (usage: my $duedate = $illrequest->_backend_capability( "getIllrequestattributes", [$illrequest,["duedate"]] );)
@@ -284,6 +360,7 @@ sub capabilities {
         isReserveFeeAcceptable => sub { $self->isReserveFeeAcceptable(@_); },
         sortAction => sub { $self->sortAction(@_); }
     };
+    #$self->_logger->trace("capabilities() returns capabilities->{$name}:" . $capabilities->{$name});
     return $capabilities->{$name};
 }
 
@@ -300,12 +377,12 @@ sub metadata {
     my ( $self, $request ) = @_;
 
     my %map = (
-        'Article_author' => 'article_author',    # used alternatively to 'Author'
-        'Article_title' => 'article_title',    # used alternatively to 'Title'
-        'Author' => 'author',
+        'Article_author' => 'article_author',    # used alternatively to 'author'
+        'Article_title' => 'article_title',    # used alternatively to 'title'
+        'author' => 'author',
+        'title' => 'title',
         'ISBN' => 'isbn',
-        'Order ID' => 'zflorderid',
-        'Title' => 'title',
+        'ISSN' => 'issn',
     );
 
     my %attr;
@@ -315,16 +392,17 @@ sub metadata {
     }
     if ( $attr{Article_author} ) {
         if ( length($attr{Article_author}) ) {
-            $attr{Author} = $attr{Article_author};
+            $attr{author} = $attr{Article_author};
         }
         delete $attr{Article_author};
     }
     if ( $attr{Article_title} ) {
         if ( length($attr{Article_title}) ) {
-            $attr{Title} = $attr{Article_title};
+            $attr{title} = $attr{Article_title};
         }
         delete $attr{Article_title};
     }
+    #$self->_logger->info("metadata() ENDE attr:" . logHash(\%attr) . ":");
 
     return \%attr;
 }
@@ -363,6 +441,7 @@ sub create {
 
         # Check for borrower by sent cardnumber
         my ( $brw_count, $brw ) = _validate_borrower($params->{other}->{attributes}->{'cardnumber'});
+        $self->_logger->trace("create() after self->_validate_borrower with cardnumber:" . ($params->{other}->{attributes}->{'cardnumber'}?$params->{other}->{attributes}->{'cardnumber'}:'undef'). ":  brw_count:$brw_count:");
 
         if ( !$params->{other}->{'attributes'}->{'title'} ) {
             $backend_result->{error}  = 1;
@@ -389,21 +468,26 @@ sub create {
             $backend_result->{borrowernumber} = $params->{other}->{borrowernumber};
         }
 
-        my $biblionumber = $self->slnp2biblio($params->{other});
+        my $biblionumber = 0;
         my $itemnumber = 0;
+        if ( ! $backend_result->{error} ) {
+            $biblionumber = $self->slnp2biblio($params->{other});
 
-        if ( ! $biblionumber ) {
-            $backend_result->{error}  = 1;
-            $backend_result->{status} = "error_creating_biblio";
-            $backend_result->{value}  = $params;
-        } else {
-            $itemnumber = $self->slnp2items($params,$biblionumber,{});
-            if ( ! $itemnumber ) {
+            if ( ! $biblionumber ) {
                 $backend_result->{error}  = 1;
-                $backend_result->{status} = "error_creating_items";
+                $backend_result->{status} = "error_creating_biblio";
                 $backend_result->{value}  = $params;
+            } else {
+                $itemnumber = $self->slnp2items($params,$biblionumber,{});
+                if ( ! $itemnumber ) {
+                    $backend_result->{error}  = 1;
+                    $backend_result->{status} = "error_creating_items";
+                    $backend_result->{value}  = $params;
+                }
             }
         }
+        $self->_logger->info("create() after validation  backend_result->{error}:" . scalar $backend_result->{error} . ": ->{status}:" . scalar $backend_result->{status} . ":");
+        $self->_logger->trace("create() after validation  Dumper(backend_result->{value}):" . Dumper($backend_result->{value}) . ":");
 
         if ( $backend_result->{error} == 0 ) {
             my $now = DateTime->now( time_zone => C4::Context->tz() );
@@ -477,6 +561,7 @@ sub create {
         $backend_result->{status} = 'unknown_stage';
     }
 
+    $self->_logger()->trace("create() returns Dumper(backend_result):" . Dumper($backend_result) . ':');
     return $backend_result;
 }
 
@@ -737,20 +822,21 @@ sub verbucheEingang {
                 $params->{request}->status('RECVD')->store;
 
                 # additionally create a standard Koha reserve
-                my $reserve_id = C4::Reserves::AddReserve(
-                    $params->{request}->branchcode(),
-                    $params->{request}->borrowernumber(),
-                    $params->{request}->biblio_id(),
-                    [$params->{request}->biblio_id()],
-                    0,                              # priority
-                    '',                             # reservedate today
-                    $illreq_attributes->{duedate},  # expirationdate
-                    '',                             # notes
-                    '',                             # biblio title for fee
-                    $params->{other}->{itemnumber}, # itemnumber
-                    'W',                            # field 'found'
-                    undef                           # itemtype
-                );
+                my $reservesParams = {
+                    branchcode => $params->{request}->branchcode(),
+                    borrowernumber => $params->{request}->borrowernumber(),
+                    biblionumber => $params->{request}->biblio_id(),
+                    priority => 0,
+                    reservation_date => '',    # reservedate today
+                    expiration_date => $illreq_attributes->{duedate},
+                    notes => '',
+                    title => '',    # biblio title for fee
+                    itemnumber => $params->{other}->{itemnumber},
+                    found => 'W',    # field reserves.found
+                    itemtype => undef,
+                    non_priority => 0
+                };
+                my $reserve_id = C4::Reserves::AddReserve( $reservesParams );
  
             } else {
                 while (my ($type, $value) = each %{$illreq_attributes}) {
@@ -954,7 +1040,7 @@ sub sendeZurueck {
         }
 
         # finally delete biblio and items data
-        delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1078,7 +1164,7 @@ sub meldeVerlust {
         # try to etrieve the issue
         my $issue = Koha::Checkouts->find( { itemnumber => $params->{other}->{itemnumber} } );
         if ( ! $issue ) {
-            delBiblioAndItem($params->{request}->biblio_id(), $params->{other}->{itemnumber});
+            $self->delBiblioAndItem($params->{request}->biblio_id(), $params->{other}->{itemnumber});
         }
 
         # set illrequest.completed date to today
@@ -1140,7 +1226,7 @@ sub storniereFuerBenutzer {
             $params->{request}->status('CNCLDFU')->store;
         } else {
             # finally delete biblio and items data
-            delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+            $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
 
             # set illrequest.completed date to today
             $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1216,7 +1302,7 @@ sub kennzeichneNegativ {
 
 
         # finally delete biblio and items data
-        delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1234,19 +1320,35 @@ sub kennzeichneNegativ {
 
 # deletes biblio and item data of the ILL item from the database, normally if illrequests.status is set to 'COMP'
 sub delBiblioAndItem {
-    my ($biblionumber, $itemnumber) = @_;
+    my ($self, $biblionumber, $itemnumber) = @_;
+    my $resDelItem;
+    my $errDelBiblio;
+    $self->_logger->debug("delBiblioAndItem() START biblionumber:$biblionumber: itemnumber:$itemnumber:");
+
     my $holds = Koha::Holds->search({ itemnumber => $itemnumber });
     if ( $holds ) {
         $holds->delete();
     }
-    my $res = C4::Items::DelItemCheck( $biblionumber, $itemnumber );
-    my $error;
-    if ( $res eq '1' ) {
-        $error = &DelBiblio($biblionumber);
+    my $kohaItem = Koha::Items->find($itemnumber);
+    if ( $kohaItem ) {
+        $resDelItem = $kohaItem->safe_to_delete();
+$self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_to_delete():$resDelItem:");
+        if ( $resDelItem eq '1' ) {
+            $resDelItem = $kohaItem->safe_delete();
+$self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_delete():$resDelItem: ref:" . ref($resDelItem) . ":");
+            if ( ref($resDelItem) eq 'Koha::Item' ) {    # deleting successful
+                $resDelItem = '1';
+            }
+        }
+    } else {
+        $resDelItem = '1';    # ok, item was deleted in the past
     }
-    if ( $res ne '1' || $error) {
-        warn "ERROR when deleting ILL title $biblionumber ($error) or ILL item $itemnumber ($res)";
-        print "Content-Type: text/html\n\n<html><body><h4>ERROR when deleting ILL title $biblionumber (error:$error) <br />or when deleting ILL item $itemnumber (res:$res)</h4></body></html>";
+    if ( $resDelItem eq '1' ) {
+        $errDelBiblio = &C4::Biblio::DelBiblio($biblionumber);
+    }
+    if ( $resDelItem ne '1' || $errDelBiblio) {
+        warn "ERROR when deleting ILL title $biblionumber ($errDelBiblio) or ILL item $itemnumber ($resDelItem)";
+        print "Content-Type: text/html\n\n<html><body><h4>ERROR when deleting ILL title $biblionumber (error:$errDelBiblio) <br />or when deleting ILL item $itemnumber (result:$resDelItem)</h4></body></html>";
         exit;
     }
 }
@@ -1261,6 +1363,8 @@ Create a basic biblio record for the passed SLNP API request
 
 sub slnp2biblio {
     my ($self, $other) = @_;
+
+    $self->_logger->debug("slnp2biblio() START author:$other->{attributes}->{author}: title:$other->{attributes}->{title}: isbn:$other->{attributes}->{isbn}:");
 
     # We're going to try and populate author, title, etc.
     my $author = $other->{attributes}->{author};
@@ -1303,9 +1407,10 @@ sub slnp2biblio {
     my $marc_field942 = MARC::Field->new('942', '', '', n => '1');
     $marcrecord->append_fields($marc_field942);
 
-    # We use a minimal framework named 'ILLSLNP', which needs to be created beforehand.
+    # We use the minimal framework named 'FA', which needs to be created beforehand.
     my $biblionumber = AddBiblio($marcrecord, $self->{framework});
 
+    $self->_logger->debug("slnp2biblio() returns biblionumber:$biblionumber:");
     return $biblionumber;
 }
 
@@ -1319,7 +1424,11 @@ Create or update a basic items record from the sent SLNPFLCommand data
 
 sub slnp2items {
     my ($self, $params, $biblionumber, $itemfieldsvals) = @_;
-    my ($biblionumberItem, $biblioitemnumberItem, $itemnumberItem) = (undef,undef,undef);
+    my $itemnumberItem = undef;
+
+    $self->_logger->debug("slnp2items() START biblionumber:$biblionumber: Dumper(itemfieldsvals):" . Dumper($itemfieldsvals) . ":");
+    $self->_logger->trace("slnp2items() START Dumper(params):" . Dumper($params) . ":");
+
     if ( ! keys %{$itemfieldsvals} )    # create items record
     {
         my $item_hash;
@@ -1341,13 +1450,17 @@ sub slnp2items {
         }
             
         # finally add the next items record
-        ( $biblionumberItem, $biblioitemnumberItem, $itemnumberItem ) = C4::Items::AddItem($item_hash, $biblionumber);
+        $item_hash->{biblionumber} = $biblionumber;
+        $item_hash->{biblioitemnumber} = $biblionumber;
+        my $kohaItem = Koha::Item->new( $item_hash )->store;
+        $itemnumberItem = $kohaItem->itemnumber;
     } else {    # update items record
-            $itemnumberItem = scalar $params->{other}->{attributes}->{itemnumber};
-            my $itemrs = Koha::Items->find({ itemnumber => $itemnumberItem });
-            $itemrs->update($itemfieldsvals);
+        $itemnumberItem = scalar $params->{other}->{attributes}->{itemnumber};
+        my $itemrs = Koha::Items->find({ itemnumber => $itemnumberItem });
+        $itemrs->update($itemfieldsvals);
     }
 
+    $self->_logger->debug("slnp2items() returns itemnumberItem:$itemnumberItem:");
     return $itemnumberItem;
 }
 
@@ -1454,6 +1567,7 @@ sub isReserveFeeAcceptable {
     my ($self, $request) = @_;
     my $ret = 0;    # an additional hold fee is not acceptable for the ILLSLNPKoha backend (maybe configurable in the future)
 
+    #$self->_logger->info("isReserveFeeAcceptable() returns ret:$ret:");
     return $ret
 }
 

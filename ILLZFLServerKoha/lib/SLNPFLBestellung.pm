@@ -33,8 +33,8 @@ sub doSLNPFLBestellung {
     my $cmd = shift;
     my ($params) = @_;
 
-    my $dbh = C4::Context->dbh;
-    $dbh->{AutoCommit} = 0;
+    my $schema = Koha::Database->new->schema;
+    $schema->storage->txn_begin;
 
 
     # create an illrequests record and some illrequestattributes records from the sent title data using the Illbackend's methods
@@ -94,7 +94,7 @@ sub doSLNPFLBestellung {
              !defined $backend_result->{value} || 
              !defined $backend_result->{value}->{request} || 
              !$backend_result->{value}->{request}->illrequest_id() ) {
-            $dbh->rollback;
+            $schema->storage->txn_rollback;
 	        $cmd->{'req_valid'} = 0;
             if ( $backend_result->{status} eq "invalid_borrower" ) {
 		        $cmd->{'err_type'} = 'PATRON_NOT_FOUND';
@@ -113,8 +113,7 @@ sub doSLNPFLBestellung {
                 'resp_pval' => 'ILL request successfully inserted.'
             };
 
-            $dbh->commit();
-            $dbh->{AutoCommit} = 1;
+            $schema->storage->txn_commit;
         }
     }
 

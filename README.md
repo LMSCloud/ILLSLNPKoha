@@ -20,7 +20,7 @@ The remaining features of this ILL backend are accessible via the standard ILL f
 ## Installing
 * Create a directory in '/usr/share/koha/lib/Koha' called 'Illbackends', so you will end up with '/usr/share/koha/lib/Koha/Illbackends'.
 * Clone the repository into this directory, so you will end up with '/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha'.
-* In the 'ILLSLNPKoha' directory switch to the branch you wish to use (in the moment only 'master' (matching Koha-LMSCloud master) is supported).
+* In the 'ILLSLNPKoha' directory switch to the branch you wish to use, matching your currently checked out branch of Koha-LMSCloud.
 * Load default values into table 'systempreferences' and into table 'letter' and update koha-conf.xml by calling
 `
   export KOHA_INSTANZ=<the_name_of_your_Koha_instance>; 

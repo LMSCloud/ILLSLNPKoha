@@ -1,11 +1,3 @@
-[% USE Asset %]
-[% SET footerjs = 1 %]
-[% USE Koha %]
-[% USE KohaDates %]
-<link rel="stylesheet" type="text/css" href="[% interface %]/[% theme %]/css/datatables.css" />
-[% INCLUDE 'calendar.inc' %]
-[% USE Price %]
-
 [% IF whole.error %]
   [% IF whole.status == 'missing_sendingIllLibraryInfo' %]
     <p><em>Hinweis:</em> Pflichtfeld 'Lieferbibliothek' hat keinen Eintrag.</p>
@@ -213,186 +205,187 @@
 
 
 
-<script type= "text/javascript">
-    $(document).ready(function() {
-        [% IF whole.stage == "InsertAndPrint" || whole.stage == "UpdateAndMaybePrint" || whole.stage == "PrintOnly" %]
-            var slipchecked = $("#illdeliveryslipprint").prop('checked');
-            if ( slipchecked ) {
-                var ret = printIllProcessingSlip();
-            } else {
-                document.getElementById("cancelbutton").click();
-            }
-        [% ELSIF whole.stage == "deliveryUpdate" %]
-            actualizePrintButton(document.SLNP_delivery.printButton);
-        [% END %]
+[% BLOCK backend_jsinclude %]
+    [% Asset.js("lib/jquery/jquery.js") | $raw %]
 
-        $("#printButton").on('click', function(e){
-            e.preventDefault();
-            var ret = false;
-            var deliverylettercode = $("#illdeliverylettercode").val();
-            var slipchecked = $("#illdeliveryslipprint").prop('checked');
-            if ( !(deliverylettercode || slipchecked) ) {
-                alert( _("You have not selected any letter or slip!") );
-                return false;
-            }
-            if ( slipchecked > 0 ) {
-                ret = printIllProcessingSlip();
-            }
-            if ( deliverylettercode ) {
-                $('#SLNP_delivery').submit();
-            }
-            return ret;
-        });
-
-    });    // $(document).ready(function() END
-
-    function actualizePrintButton (buttonObj) {
-        if ( $("#illdeliverylettercode").val() || $("#illdeliveryslipprint").prop('checked') )
-            buttonObj.disabled = false;
-        else
-            buttonObj.disabled = true;
-    }
-
-    function printIllProcessingSlip () {
-        var slipcount = 0;
-        if ( $("#illdeliveryslipprint").prop('checked') ) {
-          slipcount = 2;
-        }
-        var borrowernumbers = [];
-        borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
-        borrowernumbers.push("[% whole.value.request.borrowernumber %]");
-        var data = {
-            use_letter: "[% whole.value.other.illdeliveryslipcode %]",
-            use_email: '',
-            slipcount: slipcount,
-            illrequestid: "[% whole.illrequest_id %]",
-            biblionumber: "[% whole.value.request.biblio_id %]",
-            itemnumber: "[% whole.value.other.itemnumber %]",
-            duedate: "[% whole.value.other.duedate %]",
-            borrowernumbers: borrowernumbers
-        };
-
-        $.ajax({
-            data: data,
-            type: 'POST',
-            url: '/cgi-bin/koha/svc/members/genIllDeliverySlip',
-            success: function(data) {
-
-                var processingslipwin = window.open("/cgi-bin/koha/tools/download-files.pl?filename=" + data.printedfile + "&op=download");
-
-                processingslipwin.onload = function()
-                {
+    <script type= "text/javascript">
+        $(document).ready(function() {
+            [% IF whole.stage == "InsertAndPrint" || whole.stage == "UpdateAndMaybePrint" || whole.stage == "PrintOnly" %]
+                var slipchecked = $("#illdeliveryslipprint").prop('checked');
+                if ( slipchecked ) {
+                    var ret = printIllProcessingSlip();
+                } else {
                     document.getElementById("cancelbutton").click();
-                    processingslipwin.print();
-                    processingslipwin.close();
-                };
-
-            },
-            error: function() {
-                alert( _("A server error occured processing the processing slip print request.") );
-
-                document.getElementById("cancelbutton").click();
-            }
-        });
-    }
-
-
-    function floatInput(floatAsText,decimalplaces) {
-        // Not accepting more than 1 decimal separator ("." or ",") and 2 ciphers after the integer part of the input in money amount field.
-        var len = floatAsText.value.length;
-        var decSepPos = floatAsText.value.indexOf(".");
-        var decSepPos2 = floatAsText.value.indexOf(",");
-        if ( decSepPos2 >= 0 && (decSepPos2 < decSepPos || decSepPos < 0) ) {  
-            decSepPos = decSepPos2;
-        }
-        if ( decSepPos >= 0 && len > decSepPos + 1 + decimalplaces ) {
-            floatAsText.value = floatAsText.value.substr(0, decSepPos + 1 + decimalplaces);
-        }
-    }
-
-    function moneyNormalize(textObj) {
-        var amountNew = parseFloat(textObj.value.replace(",","."));
-        if ( isNaN(amountNew) ) {
-            amountNew = 0.0;
-        }
-        textObj.value = parseFloat(amountNew);
-    }
-
-    function moneyFormat(textObj) {
-        var newValue = textObj.value.replace(",",".");
-        var decAmount = "";
-        var dolAmount = "";
-        var decFlag   = false;
-        var aChar     = "";
-
-        for(i=0; i < newValue.length; i++) {
-            aChar = newValue.substring(i, i+1);
-            if (aChar >= "0" && aChar <= "9") {
-                if(decFlag) {
-                    decAmount = "" + decAmount + aChar;
                 }
-                else {
-                    dolAmount = "" + dolAmount + aChar;
+            [% ELSIF whole.stage == "deliveryUpdate" %]
+                actualizePrintButton(document.SLNP_delivery.printButton);
+            [% END %]
+
+            $("#printButton").on('click', function(e){
+                e.preventDefault();
+                var ret = false;
+                var deliverylettercode = $("#illdeliverylettercode").val();
+                var slipchecked = $("#illdeliveryslipprint").prop('checked');
+                if ( !(deliverylettercode || slipchecked) ) {
+                    alert( _("You have not selected any letter or slip!") );
+                    return false;
+                }
+                if ( slipchecked > 0 || deliverylettercode ) {
+                    $('#SLNP_delivery').submit();
+                }
+                return ret;
+            });
+
+        });    // $(document).ready(function() END
+
+        function actualizePrintButton (buttonObj) {
+            if ( $("#illdeliverylettercode").val() || $("#illdeliveryslipprint").prop('checked') )
+                buttonObj.disabled = false;
+            else
+                buttonObj.disabled = true;
+        }
+
+        function printIllProcessingSlip () {
+            var slipcount = 0;
+            if ( $("#illdeliveryslipprint").prop('checked') ) {
+              slipcount = 2;
+            }
+            var borrowernumbers = [];
+            borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
+            borrowernumbers.push("[% whole.value.request.borrowernumber %]");
+            var data = {
+                use_letter: "[% whole.value.other.illdeliveryslipcode %]",
+                use_email: '',
+                slipcount: slipcount,
+                illrequestid: "[% whole.illrequest_id %]",
+                biblionumber: "[% whole.value.request.biblio_id %]",
+                itemnumber: "[% whole.value.other.itemnumber %]",
+                duedate: "[% whole.value.other.duedate %]",
+                borrowernumbers: borrowernumbers
+            };
+
+            $.ajax({
+                data: data,
+                type: 'POST',
+                url: '/cgi-bin/koha/svc/ill/genIllDeliverySlip',
+                success: function(data) {
+
+                    var processingslipwin = window.open("/cgi-bin/koha/tools/download-files.pl?filename=" + data.printedfile + "&op=download");
+
+                    processingslipwin.onload = function()
+                    {
+                        document.getElementById("cancelbutton").click();
+                        processingslipwin.print();
+                        processingslipwin.close();
+                    };
+
+                },
+                error: function() {
+                    alert( _("A server error occured processing the processing slip print request.") );
+
+                    document.getElementById("cancelbutton").click();
+                }
+            });
+        }
+
+
+        function floatInput(floatAsText,decimalplaces) {
+            // Not accepting more than 1 decimal separator ("." or ",") and 2 ciphers after the integer part of the input in money amount field.
+            var len = floatAsText.value.length;
+            var decSepPos = floatAsText.value.indexOf(".");
+            var decSepPos2 = floatAsText.value.indexOf(",");
+            if ( decSepPos2 >= 0 && (decSepPos2 < decSepPos || decSepPos < 0) ) {  
+                decSepPos = decSepPos2;
+            }
+            if ( decSepPos >= 0 && len > decSepPos + 1 + decimalplaces ) {
+                floatAsText.value = floatAsText.value.substr(0, decSepPos + 1 + decimalplaces);
+            }
+        }
+
+        function moneyNormalize(textObj) {
+            var amountNew = parseFloat(textObj.value.replace(",","."));
+            if ( isNaN(amountNew) ) {
+                amountNew = 0.0;
+            }
+            textObj.value = parseFloat(amountNew);
+        }
+
+        function moneyFormat(textObj) {
+            var newValue = textObj.value.replace(",",".");
+            var decAmount = "";
+            var dolAmount = "";
+            var decFlag   = false;
+            var aChar     = "";
+
+            for(i=0; i < newValue.length; i++) {
+                aChar = newValue.substring(i, i+1);
+                if (aChar >= "0" && aChar <= "9") {
+                    if(decFlag) {
+                        decAmount = "" + decAmount + aChar;
+                    }
+                    else {
+                        dolAmount = "" + dolAmount + aChar;
+                    }
+                }
+                if (aChar == ".") {
+                    if (decFlag) {
+                        break;
+                    }
+                    decFlag = true;
                 }
             }
-            if (aChar == ".") {
-                if (decFlag) {
-                    break;
+
+            if (dolAmount == "") {
+                dolAmount = "0";
+            }
+            // Strip leading 0s
+            if (dolAmount.length > 1) {
+                while(dolAmount.length > 1 && dolAmount.substring(0,1) == "0") {
+                    dolAmount = dolAmount.substring(1,dolAmount.length);
                 }
-                decFlag = true;
             }
-        }
-
-        if (dolAmount == "") {
-            dolAmount = "0";
-        }
-        // Strip leading 0s
-        if (dolAmount.length > 1) {
-            while(dolAmount.length > 1 && dolAmount.substring(0,1) == "0") {
-                dolAmount = dolAmount.substring(1,dolAmount.length);
+            if (decAmount.length > 2) {
+                decAmount = decAmount.substring(0,2);
             }
+            // Pad right side
+            if (decAmount.length == 1) {
+                decAmount = decAmount + "0";
+            }
+            if (decAmount.length == 0) {
+            decAmount = decAmount + "00";
+            }
+
+            textObj.value = parseFloat(parseFloat(dolAmount + "." + decAmount).toFixed(2)).format_price();
         }
-        if (decAmount.length > 2) {
-            decAmount = decAmount.substring(0,2);
-        }
-        // Pad right side
-        if (decAmount.length == 1) {
-            decAmount = decAmount + "0";
-        }
-        if (decAmount.length == 0) {
-        decAmount = decAmount + "00";
+
+
+        function DoPopIllLibrarySearch(link) {
+            var newWin = window.open(link,'popup','width=800,height=500,resizable=no,toolbar=false,scrollbars=yes,top');
         }
 
-        textObj.value = parseFloat(parseFloat(dolAmount + "." + decAmount).toFixed(2)).format_price();
-    }
 
+        function select_user(borrowernumber, sendingLib) {
+            var form = $('#SLNP_delivery').get(0);
 
-    function DoPopIllLibrarySearch(link) {
-        var newWin = window.open(link,'popup','width=800,height=500,resizable=no,toolbar=false,scrollbars=yes,top');
-    }
+            if ( !sendingLib.borr_attr_attribute_SIGEL ) {
+                sendingLib.borr_attr_attribute_SIGEL = '';
+            }
+            var sendingIllLibraryInfo = 'Sigel: ' + sendingLib.borr_attr_attribute_SIGEL + ' / ' + sendingLib.surname + ' / Ort: ' + sendingLib.city;
+            $('#sendingIllLibrary')
+                .show()
+                .find('a')
+                .attr("href","/cgi-bin/koha/members/moremember.pl?borrowernumber=" + sendingLib.borrowernumber);
 
+            form.sendingIllLibraryBorrowernumber.value = sendingLib.borrowernumber;
+            form.sendingIllLibraryIsil.value = sendingLib.borr_attr_attribute_SIGEL;
+            form.sendingIllLibrarySurname.value = sendingLib.surname;
+            form.sendingIllLibraryCity.value = sendingLib.city;
+            form.sendingIllLibraryInfo.value = sendingIllLibraryInfo;
 
-    function select_user(borrowernumber, sendingLib) {
-        var form = $('#SLNP_delivery').get(0);
+            form.illlibrarysearch.value = 'Ändern';
 
-        if ( !sendingLib.borr_attr_attribute_SIGEL ) {
-            sendingLib.borr_attr_attribute_SIGEL = '';
+            return 0;
         }
-        var sendingIllLibraryInfo = 'Sigel: ' + sendingLib.borr_attr_attribute_SIGEL + ' / ' + sendingLib.surname + ' / Ort: ' + sendingLib.city;
-        $('#sendingIllLibrary')
-            .show()
-            .find('a')
-            .attr("href","/cgi-bin/koha/members/moremember.pl?borrowernumber=" + sendingLib.borrowernumber);
 
-        form.sendingIllLibraryBorrowernumber.value = sendingLib.borrowernumber;
-        form.sendingIllLibraryIsil.value = sendingLib.borr_attr_attribute_SIGEL;
-        form.sendingIllLibrarySurname.value = sendingLib.surname;
-        form.sendingIllLibraryCity.value = sendingLib.city;
-        form.sendingIllLibraryInfo.value = sendingIllLibraryInfo;
-
-        form.illlibrarysearch.value = 'Ändern';
-
-        return 0;
-    }
-
-</script>
+    </script>
+[% END %]
