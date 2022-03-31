@@ -1,6 +1,6 @@
 package Koha::Illbackends::ILLSLNPKoha::Base;
 
-# Copyright 2018-2021 (C) LMSCLoud GmbH
+# Copyright 2018-2022 (C) LMSCLoud GmbH
 #
 # This file is part of Koha.
 #
