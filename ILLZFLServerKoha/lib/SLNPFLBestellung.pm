@@ -60,7 +60,7 @@ sub doSLNPFLBestellung {
         # fields for table illrequestattributes
         $args->{attributes} = {
             'zflorderid' => $params->{BestellId},
-            'cardnumber' => $params->{BenutzerNummer}, # backend->create() will search for borrowers.borrowernumber
+            'cardnumber' => $params->{BenutzerNummer}, # backend->create() will search for borrowers.borrowernumber via cardnumber or userid
             'author' => $params->{Verfasser},
             'title' => $params->{Titel},
             'isbn' => $params->{Isbn},
@@ -98,7 +98,7 @@ sub doSLNPFLBestellung {
 	        $cmd->{'req_valid'} = 0;
             if ( $backend_result->{status} eq "invalid_borrower" ) {
 		        $cmd->{'err_type'} = 'PATRON_NOT_FOUND';
-		        $cmd->{'err_text'} = "No patron found having cardnumber '" . scalar $params->{BenutzerNummer} . "'.";
+		        $cmd->{'err_text'} = "No patron found having cardnumber or userid '" . scalar $params->{BenutzerNummer} . "'.";
             } else {
 	            $cmd->{'err_type'} = 'ILLREQUEST_NOT_CREATED';
 	            $cmd->{'err_text'} = "The Koha illrequest for the title '" . scalar $params->{Titel} . "' could not be created. (" . scalar $backend_result->{status} . ' ' . scalar $backend_result->{message} . ")";
