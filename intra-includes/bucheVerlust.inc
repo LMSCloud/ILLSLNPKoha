@@ -6,5 +6,5 @@
    Erst durch die Aktion 'Verlustmeldung' erfolgt die Benachrichtigung an die besitzende Bibliothek und ggfs. an den Besteller</p>
 
 <a class="text" href="/cgi-bin/koha/catalogue/detail.pl?biblionumber=[% request.biblio_id %]" target="_blank" >Verloren-Status setzen</a>
-
+&nbsp;&nbsp;&nbsp;
 <a class="cancel" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>

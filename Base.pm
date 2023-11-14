@@ -23,7 +23,6 @@ use File::Basename qw( dirname );
 use Data::Dumper;
 
 use Clone qw( clone );
-use Locale::Country;
 use XML::LibXML;
 use MARC::Record;
 use Try::Tiny;
@@ -33,7 +32,7 @@ use JSON qw( to_json );
 
 use C4::Context;
 use C4::Biblio qw( AddBiblio DelBiblio );
-use C4::Letters;
+use C4::Letters qw( EnqueueLetter GetLetters GetPreparedLetter );
 use Koha::Illrequest::Config;
 
 use Koha::DateUtils qw( dt_from_string output_pref );
@@ -358,7 +357,8 @@ sub capabilities {
         itemCheckedIn => sub { $self->itemCheckedIn(@_); },
         itemLost => sub { $self->itemLost(@_); },
         isReserveFeeAcceptable => sub { $self->isReserveFeeAcceptable(@_); },
-        sortAction => sub { $self->sortAction(@_); }
+        sortAction => sub { $self->sortAction(@_); },
+        getStringMap => sub { $self->getStringMap(@_); }
     };
     #$self->_logger->trace("capabilities() returns capabilities->{$name}:" . $capabilities->{$name});
     return $capabilities->{$name};
@@ -1040,7 +1040,7 @@ sub sendeZurueck {
         }
 
         # finally delete biblio and items data
-        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber}, 1);
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1164,7 +1164,7 @@ sub meldeVerlust {
         # try to etrieve the issue
         my $issue = Koha::Checkouts->find( { itemnumber => $params->{other}->{itemnumber} } );
         if ( ! $issue ) {
-            $self->delBiblioAndItem($params->{request}->biblio_id(), $params->{other}->{itemnumber});
+            $self->delBiblioAndItem($params->{request}->biblio_id(), $params->{other}->{itemnumber}, 1);
         }
 
         # set illrequest.completed date to today
@@ -1226,7 +1226,7 @@ sub storniereFuerBenutzer {
             $params->{request}->status('CNCLDFU')->store;
         } else {
             # finally delete biblio and items data
-            $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+            $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber}, 1);
 
             # set illrequest.completed date to today
             $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1302,7 +1302,7 @@ sub kennzeichneNegativ {
 
 
         # finally delete biblio and items data
-        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber});
+        $self->delBiblioAndItem(scalar $params->{request}->biblio_id(), $backend_result->{value}->{other}->{itemnumber}, 1);
 
         # set illrequest.completed date to today
         $params->{request}->completed(output_pref( { dt => dt_from_string, dateformat => 'iso' } ));
@@ -1320,37 +1320,60 @@ sub kennzeichneNegativ {
 
 # deletes biblio and item data of the ILL item from the database, normally if illrequests.status is set to 'COMP'
 sub delBiblioAndItem {
-    my ($self, $biblionumber, $itemnumber) = @_;
-    my $resDelItem;
-    my $errDelBiblio;
-    $self->_logger->debug("delBiblioAndItem() START biblionumber:$biblionumber: itemnumber:$itemnumber:");
+    my ($self, $biblionumber, $itemnumber, $print_html_if_error) = @_;
+    my $resDelItem = '1';    # assumption: no itemnumber, item was deleted in the past
+    my $errDelBiblio = 0;
+    my $errormsg = '';
+    $self->_logger->debug("delBiblioAndItem() START trying to delete title and item; biblionumber:$biblionumber: itemnumber:$itemnumber: print_html_if_error:$print_html_if_error:");
 
-    my $holds = Koha::Holds->search({ itemnumber => $itemnumber });
-    if ( $holds ) {
-        $holds->delete();
-    }
-    my $kohaItem = Koha::Items->find($itemnumber);
-    if ( $kohaItem ) {
-        $resDelItem = $kohaItem->safe_to_delete();
-$self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_to_delete():$resDelItem:");
-        if ( $resDelItem eq '1' ) {
-            $resDelItem = $kohaItem->safe_delete();
-$self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_delete():$resDelItem: ref:" . ref($resDelItem) . ":");
-            if ( ref($resDelItem) eq 'Koha::Item' ) {    # deleting successful
-                $resDelItem = '1';
-            }
+    if ( $itemnumber ) {
+        $resDelItem = '0';    # assumption: item has to be deleted
+
+        # delete the holds
+        my $holds = Koha::Holds->search({ itemnumber => $itemnumber });
+        #$self->_logger->trace("delBiblioAndItem() Dumper(holds):" . Dumper($holds) . ":");
+        if ( $holds ) {
+            $holds->delete();
         }
-    } else {
-        $resDelItem = '1';    # ok, item was deleted in the past
+
+        # delete the item
+        my $kohaItem = Koha::Items->find($itemnumber);
+        if ( $kohaItem ) {
+            my $kohaResultBoolean = $kohaItem->safe_to_delete();    # since version 22.11 safe_to_delete() returns a Koha::Result::Boolean object
+            $self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_to_delete():" . Dumper($kohaResultBoolean) . ":");
+            $resDelItem = $kohaResultBoolean ? '1' : '0';
+            $self->_logger->debug("delBiblioAndItem() 0/1 result of kohaItem->safe_to_delete() resDelItem:$resDelItem:");
+            if ( $resDelItem eq '1' ) {
+                $resDelItem = $kohaItem->safe_delete();
+                $self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_delete():$resDelItem: ref:" . ref($resDelItem) . ":");
+                if ( ref($resDelItem) eq 'Koha::Item' ) {    # deleting successful
+                    $resDelItem = '1';
+                }
+            }
+        } else {
+            $resDelItem = '1';    # ok, item was deleted in the past
+        }
+        $self->_logger->trace("delBiblioAndItem() Dumper(resDelItem):" . Dumper($resDelItem) . ":");
     }
+
     if ( $resDelItem eq '1' ) {
         $errDelBiblio = &C4::Biblio::DelBiblio($biblionumber);
+        $self->_logger->trace("delBiblioAndItem() result of C4::Biblio::DelBiblio():$errDelBiblio:");
+        $self->_logger->trace("delBiblioAndItem() Dumper(errDelBiblio):" . Dumper($errDelBiblio) . ":");
     }
-    if ( $resDelItem ne '1' || $errDelBiblio) {
-        warn "ERROR when deleting ILL title $biblionumber ($errDelBiblio) or ILL item $itemnumber ($resDelItem)";
-        print "Content-Type: text/html\n\n<html><body><h4>ERROR when deleting ILL title $biblionumber (error:$errDelBiblio) <br />or when deleting ILL item $itemnumber (result:$resDelItem)</h4></body></html>";
-        exit;
+    if ( $resDelItem ne '1' || $errDelBiblio ) {
+        warn "ERROR when deleting ILL title $biblionumber (errDelBiblio:$errDelBiblio) or ILL item $itemnumber (resDelItem:$resDelItem)";
+        $errormsg = "delBiblioAndItem() ERROR when deleting ILL title biblionumber:$biblionumber: (errDelBiblio:$errDelBiblio:) or ILL item itemnumber:$itemnumber: (resDelItem:$resDelItem:)";
+        $self->_logger->error($errormsg);
+        if ( $print_html_if_error ) {
+            print "Content-Type: text/html\n\n<html><body><h4>Beim L&ouml;schen des Fernleihmediums $biblionumber oder des Fernleihexemplars $itemnumber ist ein Fehler aufgetreten (error:$errDelBiblio result:$resDelItem).<br /></h4></body></html>";
+            exit;
+        }
     }
+    $self->_logger->debug("delBiblioAndItem() biblionumber:$biblionumber: itemnumber:$itemnumber: resDelItem:$resDelItem: errDelBiblio:$errDelBiblio: returns errormsg:$errormsg:");
+    $self->_logger->debug("delBiblioAndItem() biblionumber:$biblionumber: itemnumber:$itemnumber: after safe_to_delete/safe_delete/DelBiblio resDelItem:$resDelItem: errDelBiblio:$errDelBiblio: returns errormsg:$errormsg:");
+
+    return $errormsg;
 }
 
 =head3 slnp2biblio
@@ -1408,7 +1431,7 @@ sub slnp2biblio {
     $marcrecord->append_fields($marc_field942);
 
     # We use the minimal framework named 'FA', which needs to be created beforehand.
-    my $biblionumber = AddBiblio($marcrecord, $self->{framework});
+    my $biblionumber = C4::Biblio::AddBiblio($marcrecord, $self->{framework});
 
     $self->_logger->debug("slnp2biblio() returns biblionumber:$biblionumber:");
     return $biblionumber;
@@ -1498,6 +1521,8 @@ sub isShippingBackRequired {
     if ( $request->medium() eq 'Article' ) {
         $shippingBackRequired = 0;
     }
+
+    $self->_logger->debug("isShippingBackRequired() returns shippingBackRequired:$shippingBackRequired:");
     return $shippingBackRequired;
 }
 
@@ -1531,11 +1556,15 @@ sub getIllrequestDateDue {
 
 sub itemCheckedOut {
     my ($self, $request) = @_;
+
+    $self->_logger->debug("itemCheckedOut() is setting status to CHKDOUT");
     $request->status('CHKDOUT')->store;
 }
 
 sub itemCheckedIn {
     my ($self, $request) = @_;
+
+    $self->_logger->debug("itemCheckedIn() is setting status to CHKDIN");
     $request->status('CHKDIN')->store;
 
     # if it is an article, then use this action to transfer the status to completed
@@ -1544,6 +1573,7 @@ sub itemCheckedIn {
         $params->{request} = $request;
         $params->{other} = {};
         $params->{other}->{stage} = 'commit';
+        $self->_logger->debug("itemCheckedIn() now is calling self->sendeZurueck()");
         $self->sendeZurueck($params);
     }
 }
@@ -1606,6 +1636,25 @@ sub sortAction {
     }
 
     return $ret;
+}
+
+sub getStringMap {
+    my ($self, $request, $interesting_fields) = @_;
+    $self->_logger->debug("getStringMap() START request->illrequest_id():" . $request->illrequest_id() . ":");
+
+    my $backendStringMap = {
+        attrType => {
+            # no renaming of some illrequestattributes.type designations required in this backend
+            #'author' => 'author',
+            #'isbn' => 'isbn',
+            #'issn' => 'issn',
+            #'title' => 'title',
+            #'article_title' => 'article_title',
+            'isil' => 'sendingIllLibraryIsil',
+        }
+    };
+    $self->_logger->debug("getStringMap() returns backendStringMap:" . Dumper($backendStringMap) . ":");
+    return $backendStringMap;
 }
 
 1;

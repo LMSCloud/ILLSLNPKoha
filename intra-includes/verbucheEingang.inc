@@ -89,7 +89,7 @@
 
         <li>
           <label class="required" for="deliverydate">Exemplar/Dokument erhalten am:</label>
-          <input type="text" class="datepicker" name="deliverydate" id="deliverydate" size="10" maxlength="10" value="[% whole.value.other.deliverydate | $KohaDates %]" required="required" />
+          <input type="text" class="flatpickr" data-flatpickr-futuredate="false" name="deliverydate" id="deliverydate" size="10" maxlength="10" value="[% whole.value.other.deliverydate %]" required="required" />
           <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
         </li>
 
@@ -97,10 +97,13 @@
           <label class="required" for="sendingIllLibraryInfo">Lieferbibliothek:</label>
 
           [% IF whole.value.other.sendingIllLibraryBorrowernumber %]
+            [% SET selSigel = whole.value.other.sendingIllLibraryIsil %]
             [% SET sendingIllLibraryInfo = 'Sigel: ' _ whole.value.other.sendingIllLibraryIsil _ ' / ' _ whole.value.other.sendingIllLibrarySurname _ ' / Ort: ' _ whole.value.other.sendingIllLibraryCity %]
             <span></span><a target="blank" href="/cgi-bin/koha/members/moremember.pl?borrowernumber=[% whole.value.other.sendingIllLibraryBorrowernumber %]"><input disabled type="text" name="sendingIllLibraryInfo" id="sendingIllLibraryInfo" size="80" value="[% sendingIllLibraryInfo | html %]" required="required" /></a>
           [% ELSE %]
-            <span></span><a target="blank" href="/cgi-bin/koha/members/moremember.pl"><input required="required" disabled type="text" name="sendingIllLibraryInfo" id="sendingIllLibraryInfo" size="80" value="" /></a>
+            [% SET selSigel = '' %]
+            [% SET sendingIllLibraryInfo = 'Sigel' _ '' _ ' / ' _ 'Bibliotheksname' _ ' / ' _ 'Ort' _ '  (noch nicht zugeordnet)' %]
+            <span></span><a><input readonly required="required" type="text" name="sendingIllLibraryInfo" id="sendingIllLibraryInfo" size="80" value="[% sendingIllLibraryInfo | html %]" /></a>
           [% END %]
           <input type="hidden" id="sendingIllLibraryBorrowernumber" name="sendingIllLibraryBorrowernumber" value="[% whole.value.other.sendingIllLibraryBorrowernumber %]" />
           <input type="hidden" id="sendingIllLibraryIsil" name="sendingIllLibraryIsil" value="[% whole.value.other.sendingIllLibraryIsil %]" />
@@ -110,7 +113,7 @@
           [% FOREACH category IN whole.value.other.kohaIllPatronCategories %]
             [% SET illcategs = illcategs _ category.categorycode _ ',' %]
           [% END %]
-           <input id="illlibrarysearch" type="button" [% IF whole.value.other.sendingIllLibraryBorrowernumber %]value="Ändern"[% ELSE %]value="Suchen"[% END %] onclick="DoPopIllLibrarySearch('illLibrary_search.pl?illcategories=[% illcategs %]');" />
+           <input id="illlibrarysearch" type="button" [% IF whole.value.other.sendingIllLibraryBorrowernumber %]value="Ändern"[% ELSE %]value="Suchen"[% END %] onclick="DoPopIllLibrarySearch('illLibrary_search.pl?illcategories=[% illcategs %]&searchmember=[% selSigel %]');" />
         </li>
 
         <li>
@@ -120,7 +123,7 @@
 
         <li>
           <label class="required" for="duedate">Rückgabedatum:</label>
-          <input type="text" class="datepicker" name="duedate" id="duedate" size="10" maxlength="10" value="[% whole.value.other.duedate | $KohaDates %]" required="required" />
+          <input type="text" class="flatpickr" data-flatpickr-futuredate="true" name="duedate" id="duedate" size="10" maxlength="10" value="[% whole.value.other.duedate %]" required="required" />
          <span class="hint">[% INCLUDE 'date-format.inc' %]</span>
         </li>
 
@@ -206,7 +209,8 @@
 
 
 [% BLOCK backend_jsinclude %]
-    [% Asset.js("lib/jquery/jquery.js") | $raw %]
+    <style id="antiClickjack">body{display:none !important;}</style>
+    [% INCLUDE 'js_includes.inc' %]
 
     <script type= "text/javascript">
         $(document).ready(function() {
@@ -364,25 +368,37 @@
         }
 
 
-        function select_user(borrowernumber, sendingLib) {
+        function select_user(borrowernumber, borrowersData) {
             var form = $('#SLNP_delivery').get(0);
-
-            if ( !sendingLib.borr_attr_attribute_SIGEL ) {
-                sendingLib.borr_attr_attribute_SIGEL = '';
+            var borrowersDataBorrowernumber = borrowersData.patron_id;
+            var borrowersDataSurname = borrowersData.surname ? borrowersData.surname : '';
+            var borrowersDataCity = borrowersData.city ? borrowersData.city : '';
+            let isil = "";
+            let extended_attributes = borrowersData.extended_attributes;
+            if ( extended_attributes ) {
+                for ( let i = 0, len = extended_attributes.length; i < len; i += 1 ) {
+                    if ( extended_attributes[i].type.toUpperCase() === 'SIGEL' ) {
+                        isil = extended_attributes[i].value;
+                        break;
+                    }
+                }
             }
-            var sendingIllLibraryInfo = 'Sigel: ' + sendingLib.borr_attr_attribute_SIGEL + ' / ' + sendingLib.surname + ' / Ort: ' + sendingLib.city;
+
+            var sendingIllLibraryInfo = 'Sigel: ' + isil + ' / ' + borrowersDataSurname + ' / Ort: ' + borrowersDataCity;
             $('#sendingIllLibrary')
                 .show()
                 .find('a')
-                .attr("href","/cgi-bin/koha/members/moremember.pl?borrowernumber=" + sendingLib.borrowernumber);
+                .attr("href","/cgi-bin/koha/members/moremember.pl?borrowernumber=" + borrowersDataBorrowernumber);
 
-            form.sendingIllLibraryBorrowernumber.value = sendingLib.borrowernumber;
-            form.sendingIllLibraryIsil.value = sendingLib.borr_attr_attribute_SIGEL;
-            form.sendingIllLibrarySurname.value = sendingLib.surname;
-            form.sendingIllLibraryCity.value = sendingLib.city;
-            form.sendingIllLibraryInfo.value = sendingIllLibraryInfo;
-
+            var illlibrarysearch = $('#illlibrarysearch');
+            illlibrarysearch.attr("onclick","DoPopIllLibrarySearch('illLibrary_search.pl?illcategories=[% illcategs %]&searchmember=" + isil + "');");
             form.illlibrarysearch.value = 'Ändern';
+
+            form.sendingIllLibraryBorrowernumber.value = borrowersDataBorrowernumber;
+            form.sendingIllLibraryIsil.value = isil;
+            form.sendingIllLibrarySurname.value = borrowersDataSurname;
+            form.sendingIllLibraryCity.value = borrowersDataCity;
+            form.sendingIllLibraryInfo.value = sendingIllLibraryInfo;
 
             return 0;
         }

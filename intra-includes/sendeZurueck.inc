@@ -59,7 +59,8 @@
 
 
 [% BLOCK backend_jsinclude %]
-    [% Asset.js("lib/jquery/jquery.js") | $raw %]
+    <style id="antiClickjack">body{display:none !important;}</style>
+    [% INCLUDE 'js_includes.inc' %]
 
     <script type= "text/javascript">
 

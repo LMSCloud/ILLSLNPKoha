@@ -5,9 +5,10 @@ Das manuelle Erfassen einer ILLSLNPKoha - Fernleihebestellung ist nicht vorgeseh
 <a class="cancel" id="cancelbutton" name="cancelbutton" href="/cgi-bin/koha/ill/ill-requests.pl">Abbrechen</a>
 
 [% BLOCK backend_jsinclude %]
-    [% Asset.js("lib/jquery/jquery.js") | $raw %]
-    <script type= "text/javascript">
+    <style id="antiClickjack">body{display:none !important;}</style>
+    [% INCLUDE 'js_includes.inc' %]
 
+    <script type= "text/javascript">
     </script>
 [% END %]
 
