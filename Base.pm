@@ -439,7 +439,7 @@ sub create {
     # Validate SLNP request parameter values and insert new ILL request in DB
     elsif ( $stage eq 'commit' ) {
 
-        # Check for borrower by sent cardnumber
+        # Check for borrower by sent cardnumber. Since november 2023 the sent value is checked also against borrowers.userid in case no hit was found with this cardnumber.
         my ( $brw_count, $brw ) = _validate_borrower($params->{other}->{attributes}->{'cardnumber'});
         $self->_logger->trace("create() after self->_validate_borrower with cardnumber:" . ($params->{other}->{attributes}->{'cardnumber'}?$params->{other}->{attributes}->{'cardnumber'}:'undef'). ":  brw_count:$brw_count:");
 
@@ -1491,22 +1491,26 @@ sub slnp2items {
     my ( $brw_count, $brw ) = _validate_borrower($params->{other}->{attributes}->{'cardnumber'});
 
 Try to read the borrowers record using the cardnumber field.
+Since november 2023 the sent value is checked also against borrowers.userid in case no hit was found with this cardnumber.
 =cut
 
 sub _validate_borrower {
-    # Perform cardnumber search.
+    # Perform search for cardnumber or userid.
     # Return ( 0, undef ), ( 1, $brw ) or ( n, $brws )
-    my ( $sel_cardnumber ) = @_;
+    my ( $selCardnumberUserid ) = @_;
     my $patrons = Koha::Patrons->new;
     my ( $count, $brw );
-    my $query = { cardnumber => $sel_cardnumber };
 
-    my $brws = $patrons->search( $query );
+    my $brws = $patrons->search( { cardnumber => $selCardnumberUserid } );
     $count = $brws->count;
+    if ( $count < 1 ) {
+        $brws = $patrons->search( { userid => $selCardnumberUserid } );
+        $count = $brws->count;
+    }
     if ( $count == 1 ) {
-        $brw = $brws->next;
+        $brw = $brws->next;    # found unique hit
     } else {
-        $brw = $brws;           # found multiple results, should never happen
+        $brw = $brws;    # found multiple results (should never happen) or 0 results
     }
     return ( $count, $brw );
 }
