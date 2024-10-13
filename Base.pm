@@ -1480,7 +1480,7 @@ sub slnp2items {
     } else {    # update items record
         $itemnumberItem = scalar $params->{other}->{attributes}->{itemnumber};
         my $itemrs = Koha::Items->find({ itemnumber => $itemnumberItem });
-        $itemrs->update($itemfieldsvals);    # update(...) is not equipped with skip_record_index feature, so we use set(...)->store(...) instead
+        #$itemrs->update($itemfieldsvals);    # update(...) is not equipped with skip_record_index feature, so we use set(...)->store(...) instead
         $itemrs->set($itemfieldsvals)->store( { skip_record_index => 1 } );
     }
 
