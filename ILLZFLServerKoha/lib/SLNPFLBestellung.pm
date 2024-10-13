@@ -22,6 +22,8 @@ use strict;
 use warnings;
 
 use utf8;
+use Try::Tiny;
+use CGI::Carp;
 use Data::Dumper;
 
 use C4::Context;
@@ -34,6 +36,7 @@ sub doSLNPFLBestellung {
     my ($params) = @_;
 
     my $schema = Koha::Database->new->schema;
+    try {
     $schema->storage->txn_begin;
 
 
@@ -93,7 +96,8 @@ sub doSLNPFLBestellung {
         if ( $backend_result->{error} ne '0' || 
              !defined $backend_result->{value} || 
              !defined $backend_result->{value}->{request} || 
-             !$backend_result->{value}->{request}->illrequest_id() ) {
+             !$backend_result->{value}->{request}->illrequest_id() || 
+             !$backend_result->{value}->{request}->biblio_id() ) {
             $schema->storage->txn_rollback;
 	        $cmd->{'req_valid'} = 0;
             if ( $backend_result->{status} eq "invalid_borrower" ) {
@@ -114,8 +118,33 @@ sub doSLNPFLBestellung {
             };
 
             $schema->storage->txn_commit;
+
+            my $biblionumber = $backend_result->{value}->{request}->biblio_id();
+            my @biblionumbers = ( $biblionumber );
+            my $indexer = Koha::SearchEngine::Indexer->new( { index => $Koha::SearchEngine::BIBLIOS_INDEX } );
+            printf STDERR ("doSLNPFLBestellung() is calling indexer->update_index() with biblionumbers:%s:\n", Dumper(@biblionumbers));
+            try {
+                $indexer->update_index( \@biblionumbers, undef );
+            } catch {
+                my $mess = sprintf("doSLNPFLBestellung(): Exception thrown by update_index:%s:, so the index has to be rebuilt manually!!!", $_[0]);
+                printf STDERR ("%s:\n", $mess);
+                carp "ILLSLNPKoha::ILLZFLServerKoha::lib::" . $mess . "\n";
+            };
         }
     }
+    } catch {
+        my $exceptionThrown = $_;
+
+        my $mess = sprintf("doSLNPFLBestellung(): Exception thrown:%s:, so the transaction has to be rolled back!!!", $_[0]);
+        printf STDERR ("%s:\n", $mess);
+        carp "ILLSLNPKoha::ILLZFLServerKoha::lib::" . $mess . "\n";
+        printf STDERR ("doSLNPFLBestellung(): Exception thrown:%s:\n", Dumper($exceptionThrown) );
+
+        $schema->storage->txn_rollback;
+	    $cmd->{'req_valid'} = 0;
+        $cmd->{'err_type'} = 'ILLREQUEST_NOT_CREATED';
+        $cmd->{'err_text'} = "Exception thrown:" . $_[0] . ":";
+    };
 
 	return $cmd;
 }

@@ -1431,7 +1431,7 @@ sub slnp2biblio {
     $marcrecord->append_fields($marc_field942);
 
     # We use the minimal framework named 'FA', which needs to be created beforehand.
-    my $biblionumber = C4::Biblio::AddBiblio($marcrecord, $self->{framework});
+    my $biblionumber = C4::Biblio::AddBiblio($marcrecord, $self->{framework}, { skip_record_index => 1 });
 
     $self->_logger->debug("slnp2biblio() returns biblionumber:$biblionumber:");
     return $biblionumber;
@@ -1475,12 +1475,13 @@ sub slnp2items {
         # finally add the next items record
         $item_hash->{biblionumber} = $biblionumber;
         $item_hash->{biblioitemnumber} = $biblionumber;
-        my $kohaItem = Koha::Item->new( $item_hash )->store;
+        my $kohaItem = Koha::Item->new( $item_hash )->store( { skip_record_index => 1 } );
         $itemnumberItem = $kohaItem->itemnumber;
     } else {    # update items record
         $itemnumberItem = scalar $params->{other}->{attributes}->{itemnumber};
         my $itemrs = Koha::Items->find({ itemnumber => $itemnumberItem });
-        $itemrs->update($itemfieldsvals);
+        $itemrs->update($itemfieldsvals);    # update(...) is not equipped with skip_record_index feature, so we use set(...)->store(...) instead
+        $itemrs->set($itemfieldsvals)->store( { skip_record_index => 1 } );
     }
 
     $self->_logger->debug("slnp2items() returns itemnumberItem:$itemnumberItem:");
