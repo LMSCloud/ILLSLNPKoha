@@ -26,6 +26,7 @@ use Try::Tiny;
 use CGI::Carp;
 use Data::Dumper;
 
+use Koha::Plugins;    # this is a hack to avoid the creation of additional database connections by plugins during our database transaction XXXWH
 use C4::Context;
 use Koha::Illrequest;
 
@@ -35,7 +36,8 @@ sub doSLNPFLBestellung {
     my $cmd = shift;
     my ($params) = @_;
 
-    my $schema = Koha::Database->new->schema;
+    my @enabled_plugins = Koha::Plugins::get_enabled_plugins();    # this is a hack to avoid the creation of additional database connections by plugins during our database transaction XXXWH
+    my $schema = Koha::Database->schema;
     try {
     $schema->storage->txn_begin;
 
