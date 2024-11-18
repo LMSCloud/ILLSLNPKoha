@@ -1344,7 +1344,7 @@ sub delBiblioAndItem {
             $resDelItem = $kohaResultBoolean ? '1' : '0';
             $self->_logger->debug("delBiblioAndItem() 0/1 result of kohaItem->safe_to_delete() resDelItem:$resDelItem:");
             if ( $resDelItem eq '1' ) {
-                $resDelItem = $kohaItem->safe_delete();
+                $resDelItem = $kohaItem->safe_delete( { skip_record_index => 1 } );
                 $self->_logger->debug("delBiblioAndItem() result of kohaItem->safe_delete():$resDelItem: ref:" . ref($resDelItem) . ":");
                 if ( ref($resDelItem) eq 'Koha::Item' ) {    # deleting successful
                     $resDelItem = '1';
@@ -1360,6 +1360,13 @@ sub delBiblioAndItem {
         $errDelBiblio = &C4::Biblio::DelBiblio($biblionumber);
         $self->_logger->trace("delBiblioAndItem() result of C4::Biblio::DelBiblio():$errDelBiblio:");
         $self->_logger->trace("delBiblioAndItem() Dumper(errDelBiblio):" . Dumper($errDelBiblio) . ":");
+        if ( $errDelBiblio ) {
+            # Something went wrong while deleting the biblio, so we have to update the ES index now,
+            # because we have avoided it in the $kohaItem->safe_delete() before, beeing too optimistic.
+            my $indexer = Koha::SearchEngine::Indexer->new( { index => $Koha::SearchEngine::BIBLIOS_INDEX } );
+            $indexer->index_records( $biblionumber, "specialUpdate", "biblioserver" );
+
+        }
     }
     if ( $resDelItem ne '1' || $errDelBiblio ) {
         warn "ERROR when deleting ILL title $biblionumber (errDelBiblio:$errDelBiblio) or ILL item $itemnumber (resDelItem:$resDelItem)";
