@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright 2020 (C) LMSCLoud GmbH
+# Copyright 2020-2025 (C) LMSCLoud GmbH
 #
 # This file is part of Koha.
 #
@@ -163,6 +163,7 @@ sub update_log4perlconf {
         $outputtext = $inputtext;
         $outputtext .= "\n";
         $outputtext .= "log4perl.logger.Koha.Illbackends.$backendname = INFO, $backendname\n";
+        $outputtext .= "log4perl.logger.plack-Koha.Illbackends.$backendname = INFO, $backendname\n";
         $outputtext .= "log4perl.appender.$backendname=Log::Log4perl::Appender::File\n";
         $outputtext .= "log4perl.appender.$backendname.filename=/var/log/koha/$kohaInstanceName/$backendname-error.log\n";
         $outputtext .= "log4perl.appender.$backendname.mode=append\n";
