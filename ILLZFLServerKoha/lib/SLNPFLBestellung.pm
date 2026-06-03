@@ -105,6 +105,14 @@ sub doSLNPFLBestellung {
             if ( $backend_result->{status} eq "invalid_borrower" ) {
 		        $cmd->{'err_type'} = 'PATRON_NOT_FOUND';
 		        $cmd->{'err_text'} = "No patron found having cardnumber or userid '" . scalar $params->{BenutzerNummer} . "'.";
+            } elsif ( $backend_result->{status} eq "patron_underage" ) {
+                # Patron is below the minimum age configured in syspref ILLSLNPMinPatronAge
+                $cmd->{'err_type'} = 'PATRON_UNDERAGE';
+                $cmd->{'err_text'} = "ILL request rejected: patron '" . scalar $params->{BenutzerNummer} . "' is below the minimum age (system preference ILLSLNPMinPatronAge) required for ILL requests.";
+            } elsif ( $backend_result->{status} eq "patron_age_unknown" ) {
+                # Minimum age enforced but patron has no dateofbirth on file
+                $cmd->{'err_type'} = 'PATRON_AGE_UNKNOWN';
+                $cmd->{'err_text'} = "ILL request rejected: patron '" . scalar $params->{BenutzerNummer} . "' has no date of birth on file; the configured minimum age (system preference ILLSLNPMinPatronAge) cannot be verified."; 
             } else {
 	            $cmd->{'err_type'} = 'ILLREQUEST_NOT_CREATED';
 	            $cmd->{'err_text'} = "The Koha illrequest for the title '" . scalar $params->{Titel} . "' could not be created. (" . scalar $backend_result->{status} . ' ' . scalar $backend_result->{message} . ")";

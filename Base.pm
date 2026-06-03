@@ -466,6 +466,27 @@ sub create {
         } else {
             $params->{other}->{borrowernumber} = $brw->borrowernumber;
             $backend_result->{borrowernumber} = $params->{other}->{borrowernumber};
+
+            # Enforce a configurable minimum patron age for ILL requests.
+            # Driven by Koha system preference ILLSLNPMinPatronAge (integer, years).
+            # If the preference is empty or 0, the check is disabled.
+            # If enabled but the patron has no dateofbirth on file, the request is rejected
+            # as well (status 'patron_age_unknown') so the limit can not be bypassed silently.
+            my $min_age = C4::Context->preference("ILLSLNPMinPatronAge");
+            if ( defined($min_age) && $min_age =~ /^\d+$/ && $min_age > 0 ) {
+                my $age_check = _check_patron_age($brw, $min_age);
+                if ( $age_check eq 'unknown' ) {
+                    $self->_logger->info("create() patron borrowernumber:" . $brw->borrowernumber . ": has no dateofbirth, but ILLSLNPMinPatronAge=$min_age is enforced -> rejecting ILL request");
+                    $backend_result->{error}  = 1;
+                    $backend_result->{status} = "patron_age_unknown";
+                    $backend_result->{value}  = $params;
+                } elsif ( $age_check eq 'underage' ) {
+                    $self->_logger->info("create() patron borrowernumber:" . $brw->borrowernumber . ": is below ILLSLNPMinPatronAge=$min_age -> rejecting ILL request");
+                    $backend_result->{error}  = 1;
+                    $backend_result->{status} = "patron_underage";
+                    $backend_result->{value}  = $params;
+                }
+            }      
         }
 
         my $biblionumber = 0;
@@ -1523,6 +1544,37 @@ sub _validate_borrower {
     return ( $count, $brw );
 }
 
+# Determine whether a patron meets the configured minimum age for ILL requests.
+# Returns one of:
+#   'ok'       - patron is at or above the minimum age (or check disabled)
+#   'underage' - patron's age is below the minimum
+#   'unknown'  - patron has no usable dateofbirth, so age cannot be determined
+# The caller decides how to treat 'unknown' (this backend rejects to prevent bypass).
+sub _check_patron_age {
+    my ( $brw, $min_age ) = @_;
+
+    return 'ok' unless defined($brw) && defined($min_age) && $min_age > 0;
+
+    my $dob = $brw->dateofbirth;
+    return 'unknown' unless defined($dob) && length("$dob");
+
+    my $age;
+    # Prefer Koha::Patron->get_age() when available (Koha >= 17.11)
+    if ( $brw->can('get_age') ) {
+        $age = $brw->get_age;
+    } else {
+        # Fallback: compute age from dateofbirth using Koha::DateUtils + DateTime
+        my $dt_dob = eval { dt_from_string("$dob") };
+        return 'unknown' unless $dt_dob;
+        my $now = DateTime->now( time_zone => C4::Context->tz() );
+        $age = $now->year - $dt_dob->year;
+        $age-- if ( $now->month < $dt_dob->month
+                  || ( $now->month == $dt_dob->month && $now->day < $dt_dob->day ) );
+    }
+
+    return 'unknown' unless defined($age);
+    return $age < $min_age ? 'underage' : 'ok';
+}
 
 # methods that are called by the Koha application via the ILL framework, but not exclusively by the framework
 

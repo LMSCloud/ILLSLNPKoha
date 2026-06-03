@@ -29,4 +29,4 @@ INSERT IGNORE INTO systempreferences (variable, value, options, explanation, typ
 ('ILLNoticesLetterCodes', 'ILLSLNP_DELIVERY_NOTICE_1_CHARGE|ILLSLNP_DELIVERY_NOTICE_2_CHARGE|ILLSLNP_DELIVERY_NOTICE_CHARGE_NOT', NULL, 'Provide a list of letter codes (separate multiple codes with |) which can be used to send notices on ILL receipts.', 'Free'), 
 ('ILLRequestConfirm', 'ILLSLNP_REQUEST_CONFIRM', NULL, 'letter code of notice to borrower that his ILL request has been confirmed by a owning library', 'Free'), 
 ('ILLShipBackLettercode', 'ILLSLNP_SHIPBACK_SLIP', NULL, 'letter code of slip used when sending back medium to owning ILL library', 'Free');
-
+('ILLSLNPMinPatronAge', '0', NULL, 'Minimum patron age (in years) required for SLNP ILL requests. If 0 or empty the check is disabled. If a patron is below this age the ILL request is rejected. If the patron has no dateofbirth on file the request is rejected as well.', 'Integer');
