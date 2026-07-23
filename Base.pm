@@ -950,6 +950,9 @@ sub printIllNoticeSlnp {
             'illrequests'    => $illrequest_id,
             'illrequestattributes' => $illreqattr_hashptr,
         },
+        objects => {
+            'illrequestattributes' => $illreqattr_hashptr,
+        },
     );
 
 
