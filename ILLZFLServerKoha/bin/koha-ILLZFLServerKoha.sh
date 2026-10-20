@@ -53,12 +53,12 @@ else
             mkdir -p /var/run/koha/${name}
             chown "${name}-koha:${name}-koha" /var/run/koha/${name}
 
-            adjust_paths_dev_install $name
+            adjust_paths_git_install $name    # 25.11: renamed from adjust_paths_dev_install
             PERL5LIB=/usr/share/koha/lib/Koha/Illbackends/ILLSLNPKoha/ILLZFLServerKoha:/usr/share/koha:$PERL5LIB
             export KOHA_CONF PERL5LIB
             KOHA_CONF=/etc/koha/sites/${name}/koha-conf.xml
             # PERL5LIB has been read already
-            if [ "$DEV_INSTALL" = "" ]; then
+            if [ "$KOHA_BINDIR" != "misc" ]; then    # git install: adjust_paths_git_install sets KOHA_BINDIR=misc
                 LIBDIR=$KOHA_HOME/lib
             else
                 LIBDIR=$KOHA_HOME
