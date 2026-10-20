@@ -20,7 +20,9 @@
 
     [% ELSE %]
 
-        <form id="SLNP_cancelled" name="SLNP_cancelled" method="POST" action=[% here %]>
+        <form id="SLNP_cancelled" name="SLNP_cancelled" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+            [% INCLUDE 'csrf-token.inc' %]
+            <input type="hidden" name="op" id="op" value="cud-storniereFuerBenutzer" />
 
             <input name="illrequest_id" id="illrequest_id" value="[% whole.illrequest_id %]" type="hidden" />
             <input name="backend" id="backend" value="ILLSLNPKoha" type="hidden" />

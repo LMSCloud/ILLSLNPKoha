@@ -15,7 +15,9 @@
             Vor der Verlustmeldung muss im Fernleihe-Exemplar ein Verloren-Status gesetzt werden.</strong></p>
     [% END %]
 
-    <form id="SLNP_itemlost" name="SLNP_itemlost" method="POST" action=[% here %]>
+    <form id="SLNP_itemlost" name="SLNP_itemlost" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+        [% INCLUDE 'csrf-token.inc' %]
+        <input type="hidden" name="op" id="op" value="cud-meldeVerlust" />
 
         <label for="illitemlostlibraryletterprint">Verlustmeldung an die besitzende Bibliothek erstellen:</label>
         [% IF whole.value.other.illitemlostlibrarylettercode %]

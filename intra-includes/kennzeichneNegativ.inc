@@ -17,7 +17,9 @@
 
     [% ELSE %]
 
-        <form id="SLNP_notdelivered" name="SLNP_notdelivered" method="POST" action=[% here %]>
+        <form id="SLNP_notdelivered" name="SLNP_notdelivered" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+            [% INCLUDE 'csrf-token.inc' %]
+            <input type="hidden" name="op" id="op" value="cud-kennzeichneNegativ" />
 
             <label for="illnotdeliveredletterprint">Absage-Benachrichtigung an den Besteller:</label>
             [% IF whole.value.other.illnotdeliveredlettercode %]

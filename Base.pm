@@ -42,6 +42,23 @@ use Koha::Patron::Attributes;
 use Koha::Patron::Categories;
 
 
+use Koha::Illrequestattribute;     # compatibility shim for Koha::ILL::Request::Attribute (Koha 25.11)
+use Koha::Illrequestattributes;    # compatibility shim for Koha::ILL::Request::Attributes (Koha 25.11)
+
+# explicit use of the classes that are referenced below (do not rely on other modules having loaded them)
+use DateTime;
+use C4::Reserves ();
+use C4::NoticeFees;
+use Koha::Biblios;
+use Koha::Checkouts;
+use Koha::Holds;
+use Koha::Items;
+use Koha::ItemTypes;
+use Koha::Logger;
+use Koha::Patrons;
+use Koha::SearchEngine;    # defines $Koha::SearchEngine::BIBLIOS_INDEX
+use Koha::SearchEngine::Indexer;
+
 =head1 NAME
 
 Koha::Illbackends::ILLSLNPKoha::Base - Koha ILL Backend: ILLSLNPKoha
@@ -78,6 +95,34 @@ The remaining features of this ILL backend are accessible via the standard ILL f
 =head3 new
 
 =cut
+
+sub _upsertIllrequestattribute {
+    my ( $self, $illrequest_id, $type, $value, $readonly, $backend ) = @_;
+    $value    = '' unless defined $value;
+    $readonly = 0  unless defined $readonly;
+    $backend  = 'ILLSLNPKoha' unless defined $backend;
+    try {
+        my $res = Koha::Illrequestattributes->find({ illrequest_id => $illrequest_id, backend => $backend, type => $type });
+        if ($res) {
+            if ( ( $res->value() // '' ) ne $value || ( $res->readonly() // 0 ) != $readonly ) {
+                $res->update({ value => $value, readonly => $readonly });
+            }
+        } else {
+            Koha::Illrequestattribute->new({
+                illrequest_id => $illrequest_id,
+                backend       => $backend,
+                type          => $type,
+                value         => $value,
+                readonly      => $readonly,
+            })->store;
+        }
+    } catch {
+        my $mess = sprintf("_upsertIllrequestattribute(): Exception thrown for illrequest_id:%s: backend:%s: type:%s: value:%s: exceptionThrown:%s:",
+            $illrequest_id, $backend, $type, $value, $_[0]);
+        $self->_logger->error($mess);
+        carp "ILLSLNPKoha::Base::" . $mess . "\n";
+    };
+}
 
 sub new {
     # -> instantiate the backend
@@ -387,7 +432,7 @@ sub metadata {
 
     my %attr;
     for my $k (keys %map) {
-        my $v = $request->illrequestattributes->find({ type => $map{$k} });
+        my $v = $request->extended_attributes->search({ type => $map{$k} })->next;
         $attr{$k} = $v->value if defined $v;
     }
     if ( $attr{Article_author} ) {
@@ -510,6 +555,15 @@ sub create {
         $self->_logger->info("create() after validation  backend_result->{error}:" . scalar $backend_result->{error} . ": ->{status}:" . scalar $backend_result->{status} . ":");
         $self->_logger->trace("create() after validation  Dumper(backend_result->{value}):" . Dumper($backend_result->{value}) . ":");
 
+        if ( $backend_result->{error} ) {
+            # NB: In the error case the request is not stored, but Koha::ILL::Request::backend_create() still
+            # evaluates $self->patron when the returned stage is 'commit'. DBIx::Class throws an exception
+            # ("column 'borrowernumber' not loaded from storage") if borrowernumber has never been set on the new object.
+            # That would hide the real error status (e.g. 'invalid_borrower', 'patron_underage') from the ILLZFLServerKoha daemon.
+            # So set it explicitly (undef is fine here).
+            $params->{request}->borrowernumber(undef);
+        }
+
         if ( $backend_result->{error} == 0 ) {
             my $now = DateTime->now( time_zone => C4::Context->tz() );
 
@@ -548,13 +602,20 @@ sub create {
             # populate table illrequestattributes
             $params->{other}->{attributes}->{itemnumber} = $itemnumber;
             while (my ($type, $value) = each %{$params->{other}->{attributes}}) {
+                next unless defined $value;    # optional SLNP fields that were not sent; column 'value' is NOT NULL
 
                 try {
                     Koha::Illrequestattribute->new({
                         illrequest_id => $params->{request}->illrequest_id,
+                        backend       => 'ILLSLNPKoha',
                         type          => $type,
                         value         => $value,
                     })->store;
+                } catch {
+                    my $mess = sprintf("create(): Exception thrown storing illrequestattribute illrequest_id:%s: type:%s: value:%s: exceptionThrown:%s:",
+                        $params->{request}->illrequest_id, $type, $value, $_[0]);
+                    $self->_logger->error($mess);
+                    carp "ILLSLNPKoha::Base::" . $mess . "\n";
                 };
             }
             # update items record: store (maybe modified) zflorderid in items.barcode, illrequest.illrequest_id in items.stocknumber, etc.
@@ -724,7 +785,7 @@ sub verbucheEingang {
                 );
             }
 
-            my $fieldResults = $params->{request}->illrequestattributes->search(
+            my $fieldResults = $params->{request}->extended_attributes->search(
                 { type => {'-in' => \@interesting_fields}});
             my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
             foreach my $type (keys %{$illreqattr}) {
@@ -831,13 +892,7 @@ sub verbucheEingang {
 
             if ( $params->{request}->status eq 'REQ' ) {
                 while (my ($type, $value) = each %{$illreq_attributes}) {
-                    try {
-                        Koha::Illrequestattribute->new({
-                            illrequest_id => $params->{request}->id,
-                            type          => $type,
-                            value         => $value,
-                        })->store;
-                    }
+                    $self->_upsertIllrequestattribute( $params->{request}->id, $type, $value, 0, 'ILLSLNPKoha' );
                 }
 
                 $params->{request}->status('RECVD')->store;
@@ -861,15 +916,8 @@ sub verbucheEingang {
  
             } else {
                 while (my ($type, $value) = each %{$illreq_attributes}) {
-                    my $res = Koha::Illrequestattributes->find_or_create({
-                        illrequest_id => $params->{request}->id,
-                        type          => $type
-                    });
-                    if ( $res->value() ne $value ) {
-                        $res->update({
-                                      value => $value,
-                                     });
-                    }
+                    $self->_upsertIllrequestattribute( $params->{request}->id, $type, $value, 0, 'ILLSLNPKoha' );
+                    $self->_logger->debug("ensured illrequestattributes type:$type: value:$value:");
                 }
             }
         }
@@ -877,7 +925,7 @@ sub verbucheEingang {
         # the fields are already stored, so check only if to generate a new borrower notice
         if ( $params->{other}->{illdeliverylettercode} ) {    # either (Deliveryinsert->InsertAndPrint submit) or (DeliveryUpdate->UpdateAndMaybePrint submit) or (DeliveryUpdate->PrintOnly submit for letter (not slip))
 
-            my $fieldResults = $params->{request}->illrequestattributes->search();
+            my $fieldResults = $params->{request}->extended_attributes->search();
             my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
             &printIllNoticeSlnp($params->{request}->branchcode(), $params->{request}->borrowernumber(), $params->{request}->biblio_id(), $params->{other}->{itemnumber}, $params->{request}->illrequest_id(), $illreqattr, $params->{other}->{sendingIllLibraryBorrowernumber}, $params->{other}->{illdeliverylettercode} );
 
@@ -1056,7 +1104,7 @@ sub sendeZurueck {
             'zflorderid'
         );
 
-        my $fieldResults = $params->{request}->illrequestattributes->search(
+        my $fieldResults = $params->{request}->extended_attributes->search(
             { type => {'-in' => \@interesting_fields}});
         my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
         foreach my $type (keys %{$illreqattr}) {
@@ -1151,7 +1199,7 @@ sub meldeVerlust {
             'sendingIllLibraryBorrowernumber'
         );
 
-        my $fieldResults = $params->{request}->illrequestattributes->search(
+        my $fieldResults = $params->{request}->extended_attributes->search(
             { type => {'-in' => \@interesting_fields}});
         my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
         foreach my $type (keys %{$illreqattr}) {
@@ -1169,7 +1217,7 @@ sub meldeVerlust {
         # send information to the owning library that the ordered ILL medium has been lost (after delivery, before shipping back)
         if ( $params->{other}->{illitemlostlibraryletterprint} &&
              $params->{other}->{illitemlostlibrarylettercode} && length($params->{other}->{illitemlostlibrarylettercode}) ) {
-            my $fieldResults = $params->{request}->illrequestattributes->search();
+            my $fieldResults = $params->{request}->extended_attributes->search();
             my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
             &printIllNoticeSlnp($params->{request}->branchcode(), $params->{other}->{sendingIllLibraryBorrowernumber}, undef, undef, $params->{request}->illrequest_id(), $illreqattr, $params->{request}->borrowernumber(), $params->{other}->{illitemlostlibrarylettercode} );
         }
@@ -1178,7 +1226,7 @@ sub meldeVerlust {
             # send information to the borrower about the denied delivery of the ordered ILL medium (because it has been lost before check out)
             if ( $params->{other}->{illitemlostborrowerletterprint} &&
                  $params->{other}->{illitemlostborrowerlettercode} && length($params->{other}->{illitemlostborrowerlettercode}) ) {
-                my $fieldResults = $params->{request}->illrequestattributes->search();
+                my $fieldResults = $params->{request}->extended_attributes->search();
                 my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
                 &printIllNoticeSlnp($params->{request}->branchcode(), $params->{request}->borrowernumber(), undef, undef, $params->{request}->illrequest_id(), $illreqattr, $params->{other}->{sendingIllLibraryBorrowernumber}, $params->{other}->{illitemlostborrowerlettercode} );
             }
@@ -1239,7 +1287,7 @@ sub storniereFuerBenutzer {
             'title'
         );
 
-        my $fieldResults = $params->{request}->illrequestattributes->search(
+        my $fieldResults = $params->{request}->extended_attributes->search(
             { type => {'-in' => \@interesting_fields}});
         my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
         foreach my $type (keys %{$illreqattr}) {
@@ -1308,7 +1356,7 @@ sub kennzeichneNegativ {
             'title'
         );
 
-        my $fieldResults = $params->{request}->illrequestattributes->search(
+        my $fieldResults = $params->{request}->extended_attributes->search(
             { type => {'-in' => \@interesting_fields}});
         my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
         foreach my $type (keys %{$illreqattr}) {
@@ -1318,7 +1366,7 @@ sub kennzeichneNegativ {
         if ( $params->{request}->borrowernumber() && $params->{other}->{illnotdeliveredletterprint} eq '1' ) {
             # send information to the borrower about the denied delivery of the ordered ILL medium (e.g. with letter.code ILLSLNP_NOT_DELIVERED) if configured (syspref ILLNotDeliveredLettercode)
             if ( $illNotDeliveredLetterCode && length($illNotDeliveredLetterCode) ) {
-                my $fieldResults = $params->{request}->illrequestattributes->search();
+                my $fieldResults = $params->{request}->extended_attributes->search();
                 my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
                 &printIllNoticeSlnp($params->{request}->branchcode(), $params->{request}->borrowernumber(), undef, undef, $params->{request}->illrequest_id(), $illreqattr, 0, $illNotDeliveredLetterCode );
             }
@@ -1462,7 +1510,7 @@ sub slnp2biblio {
     $marcrecord->append_fields($marc_field942);
 
     # We use the minimal framework named 'FA', which needs to be created beforehand.
-    my $biblionumber = C4::Biblio::AddBiblio($marcrecord, $self->{framework}, { skip_record_index => 1 });
+    my ($biblionumber) = C4::Biblio::AddBiblio($marcrecord, $self->{framework}, { skip_record_index => 1 });    # list context: AddBiblio returns (biblionumber, biblioitemnumber), scalar context would give the biblioitemnumber
 
     $self->_logger->debug("slnp2biblio() returns biblionumber:$biblionumber:");
     return $biblionumber;
@@ -1599,7 +1647,7 @@ sub getIllrequestattributes {    # does work
     my $result;
     my ($request, $interesting_fields) = ($args->[0], $args->[1]);
 
-    my $fieldResults = $request->illrequestattributes->search(
+    my $fieldResults = $request->extended_attributes->search(
         { type => {'-in' => $interesting_fields}});
     my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
     foreach my $type (keys %{$illreqattr}) {
@@ -1612,7 +1660,7 @@ sub getIllrequestDateDue {
     my ($self, $request) = @_;
     my $result;
 
-    my $fieldResults = $request->illrequestattributes->search(
+    my $fieldResults = $request->extended_attributes->search(
         { type => "duedate" } );
     my $illreqattr = { map { ( $_->type => $_->value ) } ($fieldResults->as_list) };
     foreach my $type (keys %{$illreqattr}) {
@@ -1707,7 +1755,7 @@ sub sortAction {
 
 sub getStringMap {
     my ($self, $request, $interesting_fields) = @_;
-    $self->_logger->debug("getStringMap() START request->illrequest_id():" . $request->illrequest_id() . ":");
+    $self->_logger->debug("getStringMap() START request->illrequest_id():" . ( eval { $request->illrequest_id() } // '' ) . ":");
 
     my $backendStringMap = {
         attrType => {

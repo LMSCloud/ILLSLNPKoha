@@ -20,7 +20,9 @@
         [% END %]
     [% END %]
 
-    <form id="SLNP_shipback" name="SLNP_shipback" method="POST" action=[% here %]>
+    <form id="SLNP_shipback" name="SLNP_shipback" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+        [% INCLUDE 'csrf-token.inc' %]
+        <input type="hidden" name="op" id="op" value="cud-sendeZurueck" />
 
         <label for="illshipbackslipprint">Brief für den Rückversand erstellen:</label>
         [% IF whole.value.other.illshipbacklettercode %]
@@ -47,7 +49,9 @@
 
   <p>Rückkehr zur Fernleihbestellung</p>
 
-  <form id="SLNP_shipback" name="SLNP_shipback" method="POST" action=[% here %]>
+  <form id="SLNP_shipback" name="SLNP_shipback" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+      [% INCLUDE 'csrf-token.inc' %]
+      <input type="hidden" name="op" id="op" value="cud-sendeZurueck" />
     <input style="display:none" type="checkbox" name="illshipbackslipprint" id="illshipbackslipprint" value="1" [% IF ( whole.value.other.illshipbackslipprint ) %]checked="checked"[% END %] />
     <input style="display:none" id="submitbutton" name="submitbutton" type="submit" value="Bestätigen" onclick="stage.value='storeandprint';" />
     <a style="display:none" class="cancel" id="cancelbutton" name="cancelbutton" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>
@@ -85,6 +89,7 @@
             borrowernumbers.push("[% whole.value.request.borrowernumber %]");
 
             var data = {
+                csrf_token: $("input[name='csrf_token']").val(),
                 use_letter: "[% whole.value.other.illshipbacklettercode %]",
                 use_email: '',
                 slipcount: '1',

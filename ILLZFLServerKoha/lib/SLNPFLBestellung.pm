@@ -28,7 +28,10 @@ use Data::Dumper;
 
 use Koha::Plugins;    # this is a hack to avoid the creation of additional database connections by plugins during our database transaction XXXWH
 use C4::Context;
-use Koha::Illrequest;
+use Koha::Database;
+use Koha::ILL::Request;    # Koha 25.11: formerly Koha::Illrequest (still available as compatibility shim)
+use Koha::SearchEngine;    # defines $Koha::SearchEngine::BIBLIOS_INDEX
+use Koha::SearchEngine::Indexer;
 
 
 
@@ -36,7 +39,7 @@ sub doSLNPFLBestellung {
     my $cmd = shift;
     my ($params) = @_;
 
-    my @enabled_plugins = Koha::Plugins::get_enabled_plugins();    # this is a hack to avoid the creation of additional database connections by plugins during our database transaction XXXWH
+    my @enabled_plugins = Koha::Plugins->get_enabled_plugins();    # Koha 25.11: class method (it was called as plain function before, which fails if plugins are enabled)    # this is a hack to avoid the creation of additional database connections by plugins during our database transaction XXXWH
     my $schema = Koha::Database->schema;
     try {
     $schema->storage->txn_begin;
@@ -45,7 +48,7 @@ sub doSLNPFLBestellung {
     # create an illrequests record and some illrequestattributes records from the sent title data using the Illbackend's methods
 
     if ( $cmd->{'req_valid'} == 1 ) {
-        my $illrequest = Koha::Illrequest->new();
+        my $illrequest = Koha::ILL::Request->new();
         my $slnp_illbackend = $illrequest->load_backend( "ILLSLNPKoha" ); # this is still $illrequest
 
         my $args;
@@ -129,17 +132,19 @@ sub doSLNPFLBestellung {
 
             $schema->storage->txn_commit;
 
-            my $biblionumber = $backend_result->{value}->{request}->biblio_id();
+            my $biblionumber = $backend_result->{value}->{request}->biblio_id();    # (there is none if an active order (AFL) could not be matched to a local title)
+            if ( $biblionumber ) {
             my @biblionumbers = ( $biblionumber );
-            my $indexer = Koha::SearchEngine::Indexer->new( { index => $Koha::SearchEngine::BIBLIOS_INDEX } );
             printf STDERR ("doSLNPFLBestellung() is calling indexer->update_index() with biblionumbers:%s:\n", Dumper(@biblionumbers));
             try {
+                my $indexer = Koha::SearchEngine::Indexer->new( { index => $Koha::SearchEngine::BIBLIOS_INDEX } );
                 $indexer->update_index( \@biblionumbers, undef );
             } catch {
                 my $mess = sprintf("doSLNPFLBestellung(): Exception thrown by update_index:%s:, so the index has to be rebuilt manually!!!", $_[0]);
                 printf STDERR ("%s:\n", $mess);
                 carp "ILLSLNPKoha::ILLZFLServerKoha::lib::" . $mess . "\n";
             };
+            }
         }
     }
     } catch {

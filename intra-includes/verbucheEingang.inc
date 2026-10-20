@@ -13,7 +13,9 @@
     <h2>Eingang bearbeiten (Bestell-ID: [% whole.value.request.orderid %])</h2>
   [% END %]
 
-  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action=[% here %]>
+  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+      [% INCLUDE 'csrf-token.inc' %]
+      <input type="hidden" name="op" id="op" value="cud-verbucheEingang" />
 
     <fieldset class="rows">
       <legend>Mediendaten</legend>
@@ -197,7 +199,9 @@
 
   <p>Rückkehr zur Fernleihbestellung</p>
 
-  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action=[% here %]>
+  <form id="SLNP_delivery" name="SLNP_delivery" method="POST" action="/cgi-bin/koha/ill/ill-requests.pl">
+      [% INCLUDE 'csrf-token.inc' %]
+      <input type="hidden" name="op" id="op" value="cud-verbucheEingang" />
     <input style="display:none" type="checkbox" name="illdeliveryslipprint" id="illdeliveryslipprint" value="1" [% IF ( whole.value.other.illdeliveryslipprint ) %]checked="checked"[% END %] />
     <a style="display:none" class="cancel" id="cancelbutton" name="cancelbutton" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id %]">Abbrechen</a>
   </form>
@@ -258,6 +262,7 @@
             borrowernumbers.push("[% whole.value.other.sendingIllLibraryBorrowernumber %]");
             borrowernumbers.push("[% whole.value.request.borrowernumber %]");
             var data = {
+                csrf_token: $("input[name='csrf_token']").val(),
                 use_letter: "[% whole.value.other.illdeliveryslipcode %]",
                 use_email: '',
                 slipcount: slipcount,
